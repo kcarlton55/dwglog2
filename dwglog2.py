@@ -18,97 +18,64 @@ import sys
 import sqlite3
 import time
 import os
+from datetime import date
 
 
 class InsertDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super(InsertDialog, self).__init__(*args, **kwargs)
-        
-        self.QBtn = QPushButton()
-        self.QBtn.setText("Register")
-        
-        self.setWindowTitle("Add Part")
-        self.setFixedWidth(300)
-        self.setFixedHeight(300)
-        
+           
         self.setWindowTitle('Insert Part Data')
-        self.setFixedWidth(300)
-        self.setFixedHeight(300)
-        
-        self.QBtn.clicked.connect(self.addpart)
+        self.setFixedWidth(350)
+        self.setFixedHeight(150)
         
         layout = QVBoxLayout()
         
         self.partinput = QLineEdit()
-        self.partinput.setPlaceholderText('Part')
+        self.partinput.setPlaceholderText('Part No.')
+        self.partinput.setMaxLength(30)
         layout.addWidget(self.partinput)
-        
-# =============================================================================
-#         self.branchinput = QComboBox()
-#         self.branchinput.addItem('Chemical Engg')
-#         self.branchinput.addItem('Civil')
-#         self.branchinput.addItem('Electrical')
-#         self.branchinput.addItem('Electronics and Communication')
-#         self.branchinput.addItem('Computer Engineering')
-#         self.branchinput.addItem('Information Technolgy')
-#         layout.addWidget(self.branchinput)
-# =============================================================================
-        
+                
         self.descriptioninput = QLineEdit()
-        self.partinput.setPlaceholderText('Description')
+        self.descriptioninput.setPlaceholderText('Description')
+        self.descriptioninput.setMaxLength(40)
         layout.addWidget(self.descriptioninput)
-        
-        
-# =============================================================================
-#         self.input = QComboBox()
-#         self.seminput.addItem('1')
-#         self.seminput.addItem('2')
-#         self.seminput.addItem('3')
-#         self.seminput.addItem('4')
-#         self.seminput.addItem('5')
-#         self.seminput.addItem('6')
-#         self.seminput.addItem('7')
-#         self.seminput.addItem('8')
-#         layout.addWidget(self.seminput)
-# =============================================================================
-        
-        self.dateinput = QLineEdit()
-        self.dateinput.setPlaceholderText('Date')
-        layout.addWidget(self.dateinput)
-        
+                
         self.authorinput = QLineEdit()
         self.authorinput.setPlaceholderText('Author')
         layout.addWidget(self.authorinput)
         
-        layout.addWidget(self.QBtn)
+        self.QBtn = QPushButton('text-align:center')
+        self.QBtn.setText("Submit")
+        self.QBtn.setMaximumWidth(75)
+        self.QBtn.clicked.connect(self.addpart)   
+        
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.QBtn)
+        layout.addLayout(hbox)
         self.setLayout(layout)
 
     def addpart(self):
         part = ""
         description = ""
-        # sem = -1
-        date = ""
         author = ""
         
         part = self.partinput.text()
-        description = self.descriptioninput.itemText(self.descriptioninput.currentIndex())
-        # sem = self.seminput.itemText(self.seminput.currentIndex())
-        date = self.dateinput.text()
+        description = self.descriptioninput.text()
+        _date = date.today()
         author = self.authorinput.text()
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
             self.c.execute("INSERT INTO ptnos (part,description,Date,author) VALUES (?,?,?,?)",
-                           (part,description,date,author))
-            
+                           (part,description,_date,author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
-            QMessageBox.information(QMessageBox(), 'Successful', 'Pt no. added successfully to the database.')
+            # QMessageBox.information(QMessageBox(), 'Successful', 'Pt no. added successfully to the database.')
             self.close()
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
-
             
 class SearchDialog(QDialog):
     def __init__(self, *args, **kwargs):
@@ -233,8 +200,8 @@ class MainWindow(QMainWindow):
         self.conn = sqlite3.connect('dwglog2.db')
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
-                        ptnos(dwg INTEGER PRIMARY KEY AUTOINCREMENT,
-                        part TEXT, description TEXT, date INTEGER,
+                        ptnos(item INTEGER PRIMARY KEY AUTOINCREMENT
+                        ,dwg INTEGER, part TEXT, description TEXT, date TEXT,
                         author TEXT)''')
         self.c.close()
         
@@ -242,20 +209,37 @@ class MainWindow(QMainWindow):
         
         help_menu = self.menuBar().addMenu('&About')
         self.setWindowTitle('Dekker Drawing Log 2')
-        self.setMinimumSize(800, 600)
+        self.setMinimumSize(750, 600)
+        #self.setMaximumSize(800, 1200)
         
         self.tableWidget = QTableWidget()
         self.setCentralWidget(self.tableWidget)
         self.tableWidget.setAlternatingRowColors(True)
         self.tableWidget.setColumnCount(5)
-        self.tableWidget.horizontalHeader().setCascadingSectionResizes(False)
-        self.tableWidget.horizontalHeader().setSortIndicatorShown(False)
+        
+        #self.tableWidget.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        #self.tableWidget.resizeColumnsToContents()
+        
+        self.tableWidget.setColumnWidth(0, 80)
+        self.tableWidget.setColumnWidth(1, 140)
+        self.tableWidget.setColumnWidth(2, 330)
+        self.tableWidget.setColumnWidth(3, 80)
+        self.tableWidget.setColumnWidth(4, 30)
+        
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.verticalHeader().setVisible(False)
-        self.tableWidget.verticalHeader().setCascadingSectionResizes(False)
-        self.tableWidget.verticalHeader().setStretchLastSection(False)
-        self.tableWidget.setHorizontalHeaderLabels(('Dwg No.', 'Part', 'Description',
-                                                    'Date', 'Author'))
+        #self.tableWidget.verticalHeader().setStretchLastSection(False)
+        #https://forum.qt.io/topic/3921/solved-qtablewidget-columns-with-different-width/4
+# =============================================================================
+#         self.tableWidget.horizontalHeader().setCascadingSectionResizes(False)
+#         self.tableWidget.horizontalHeader().setSortIndicatorShown(False)
+#         self.tableWidget.horizontalHeader().setStretchLastSection(True)
+#         self.tableWidget.verticalHeader().setVisible(False)
+#         self.tableWidget.verticalHeader().setCascadingSectionResizes(False)
+#         self.tableWidget.verticalHeader().setStretchLastSection(False)
+# =============================================================================
+        self.tableWidget.setHorizontalHeaderLabels(('Dwg No.', 'Part No.',
+                                            'Description', 'Date', 'Author'))
         
         toolbar = QToolBar()
         toolbar.setMovable(False)
@@ -300,9 +284,17 @@ class MainWindow(QMainWindow):
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
         
+    def setTableWidth(self):
+        width = self.table.verticalHeader().width()
+        width += self.table.horizontalHeader().length()
+        if self.table.verticalScrollBar().isVisible():
+            width += self.table.verticalScrollBar().width()
+        width += self.table.frameWidth() * 2
+        self.table.setFixedWidth(width)
+        
     def loaddata(self):
         self.connection = sqlite3.connect('dwglog2.db')
-        query = 'SELECT * FROM ptnos'
+        query = 'SELECT dwg, part, description, date, author FROM ptnos ORDER BY Item DESC'
         result = self.connection.execute(query)
         self.tableWidget.setRowCount(0)
         for row_number, row_data in enumerate(result):
@@ -325,6 +317,7 @@ class MainWindow(QMainWindow):
     def insert(self):
         dlg = InsertDialog()
         dlg.exec_()
+        self.loaddata()
         
     def delete(self):
         dlg = DeleteDialog()
