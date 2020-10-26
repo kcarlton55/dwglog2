@@ -60,15 +60,32 @@ class InsertDialog(QDialog):
         description = ""
         author = ""
         
-        part = self.partinput.text()
-        description = self.descriptioninput.text()
+        
+        #dwgno, part = generate_nos(part)
+        #dwgno = '091088'
+        
+        part = self.partinput.text().upper().strip()
+        description = self.descriptioninput.text().upper().strip()
         _date = date.today()
         author = self.authorinput.text()
+        
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("INSERT INTO ptnos (part,description,Date,author) VALUES (?,?,?,?)",
-                           (part,description,_date,author))
+            
+            self.c.execute("SELECT MAX(dwg) FROM ptnos") 
+            result = self.c.fetchone()[0]
+            dwgno, part = generate_nos(result, part)
+            
+            
+            
+            #self.c.execute('SELECT item FROM ptnos ORDER BY item DESC LIMIT 1')
+            #result = self.c.fetchone()[0]
+            
+            
+            
+            self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
+                           (dwgno, part, description, _date,author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -201,7 +218,7 @@ class MainWindow(QMainWindow):
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
                         ptnos(item INTEGER PRIMARY KEY AUTOINCREMENT
-                        ,dwg INTEGER, part TEXT, description TEXT, date TEXT,
+                        ,dwg TEXT, part TEXT, description TEXT, date TEXT,
                         author TEXT)''')
         self.c.close()
         
@@ -228,6 +245,7 @@ class MainWindow(QMainWindow):
         
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.verticalHeader().setVisible(False)
+
         #self.tableWidget.verticalHeader().setStretchLastSection(False)
         #https://forum.qt.io/topic/3921/solved-qtablewidget-columns-with-different-width/4
 # =============================================================================
@@ -330,6 +348,56 @@ class MainWindow(QMainWindow):
     def about(self):
         dlg = AboutDilog()
         dlg.exec_()
+        
+        
+def generate_nos(pn):
+    year = date.today().year
+    try:
+        conn = sqlite3.connect("dwglog2.db")
+        c = conn.cursor()
+        c.execute("SELECT MAX(dwg) FROM ptnos") 
+        largest_as_str = c.fetchone()[0]
+        if str(year) > largest_as_str:  # if true, tnen a new year.
+            dwgno = str(year*1000 + 1)
+        else:
+            dwgno = str(int(largest_as_str) + 1)
+        largestNum = int(c.fetchone()[0])  # largest dwg no., as int
+        conn.commit()
+        c.close()
+        conn.close()   
+    except Exception:
+        QMessageBox.warning(QMessageBox(), 
+            'Error', ('Part nos. not found in the data base.  Reinitiating.'
+                      'Edit dwg no. manually to give dwg. nos. a new starting point.'
+                      ))
+        dwgno = str(int(year)*1000 + 1)
+    if int(year)*1000 > largestNum:
+        return(dwgno, '0300-2020-111') 
+    else:
+        return(dwgno, '0300-2020-111')
+    
+
+def generate_nos(largestDwgNo, partNo):
+    partNo = partNo.strip()  # partNo is a string
+    year = date.today().year  # year is a float
+    if str(year) > largestDwgNo:  # A new year!
+        dwgNo = str(year*1000 + 1)
+    elif partNo.isnumeric() and len(partNo) == 6:  # if is production no. like 091088
+        dwgNo = partNo
+    else:
+        dwgNo = str(int(largestDwgNo) + 1)
+        
+    if ((partNo.isnumeric() and len(partNo) == 4) or
+           (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
+        partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]
+    elif ((len(partNo) == 9 or len(partNo) == 10) and partNo[4] == '-'
+            and partNo[:4].isnumeric() and partNo[5:9].isnumeric()):
+        partNo = partNo[:9] + '-' + dwgNo[4:]
+            
+    return dwgNo, partNo    
+    
+
+        
         
         
 app = QApplication(sys.argv)
