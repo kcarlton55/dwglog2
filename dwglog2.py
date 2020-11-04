@@ -16,9 +16,11 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtPrintSupport import *
 import sys
 import sqlite3
-import time
 import os
-from datetime import date
+from datetime import datetime, date
+
+__version__ = '0.1'
+__author__ = 'Kenneth E. Carlton'
 
 
 class InsertDialog(QDialog):
@@ -32,7 +34,7 @@ class InsertDialog(QDialog):
         layout = QVBoxLayout()
         
         self.partinput = QLineEdit()
-        self.partinput.setPlaceholderText('Part No.')
+        self.partinput.setPlaceholderText('Part No. (e.g., will autofill: 0300- or 0300)')
         self.partinput.setMaxLength(30)
         layout.addWidget(self.partinput)
                 
@@ -46,7 +48,7 @@ class InsertDialog(QDialog):
         layout.addWidget(self.authorinput)
         
         self.QBtn = QPushButton('text-align:center')
-        self.QBtn.setText("Submit")
+        self.QBtn.setText("OK")
         self.QBtn.setMaximumWidth(75)
         self.QBtn.clicked.connect(self.addpart)   
         
@@ -66,31 +68,37 @@ class InsertDialog(QDialog):
         
         part = self.partinput.text().upper().strip()
         description = self.descriptioninput.text().upper().strip()
-        _date = date.today()
+        now = datetime.now()
+        _date = now.strftime("%Y-%m-%d %H:%M:%S")
+        # _date = date.today()
         author = self.authorinput.text()
         
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            
             self.c.execute("SELECT MAX(dwg) FROM ptnos") 
             result = self.c.fetchone()[0]
-            dwgno, part = generate_nos(result, part)
-            
-            
-            
-            #self.c.execute('SELECT item FROM ptnos ORDER BY item DESC LIMIT 1')
-            #result = self.c.fetchone()[0]
-            
-            
-            
+            dwgno, part = generate_nos(result, part)       
             self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
                            (dwgno, part, description, _date,author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
-            # QMessageBox.information(QMessageBox(), 'Successful', 'Pt no. added successfully to the database.')
             self.close()
+        except TypeError:
+            year = date.today().year
+            dwgno, part  = str(year*1000), 'Invalid part no.'
+            self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
+                           (dwgno, part, description, _date,author))
+            self.conn.commit()
+            self.c.close()
+            self.conn.close()
+            self.close()
+            QMessageBox.warning(QMessageBox(), 'Error', 'No initial drawing number was found to begin from.  '
+                          'Will create a new one.  Possibly the error is a result of a new, empty, database '
+                          'file (dwglog2.db) having just been created?  Edit the new drawing number that '
+                          'is about to be created to adjust the start point.  Make it something like 2020305 '
+                          '(7 or 8 characters, all digits, the first 4 digits are the current year).')
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
             
@@ -101,7 +109,7 @@ class SearchDialog(QDialog):
         self.QBtn = QPushButton()
         self.QBtn.setText('Search')
         
-        self.setWindowTitle('Seach user')
+        self.setWindowTitle('Seach part')
         self.setFixedWidth(300)
         self.setFixedHeight(100)
         self.QBtn.clicked.connect(self.searchpart)
@@ -116,6 +124,7 @@ class SearchDialog(QDialog):
         self.setLayout(layout)
         
     def searchpart(self):
+        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
         searchrol = ""
         searchrol = self.searchinput.text()
         try:
@@ -123,16 +132,59 @@ class SearchDialog(QDialog):
             self.c = self.conn.cursor()
             result = self.c.execute("SELECT * from ptnos WHERE dwg=" + str(searchrol))
             row = result.fetchone()
-            searchresult = ("Dwgno : " + str(row[0]) + '\n' + "Part : " + str(row[1]) +
-                            '\n' + "Description : " + str(row[2]) + '\n' +
-                            "Author : " + str(row[4]))
+            searchresult = ("Dwgno: " + str(row[1]) + '\nPart: ' + str(row[2]) +
+                            '\nDescription: ' + str(row[3]) + 
+                            '\nDate: ' + str(row[4]) + '\nAuthor: ' + str(row[5]))
             QMessageBox.information(QMessageBox(), 'Successful', searchresult)
             self.conn.commit()
             self.c.close()
             self.conn.close()
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')
+ 
             
+class SearchDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        super(SearchDialog, self).__init__(*args, **kwargs)
+        
+        self.QBtn = QPushButton()
+        self.QBtn.setText('Search')
+        
+        self.setWindowTitle('Seach part')
+        self.setFixedWidth(300)
+        self.setFixedHeight(100)
+        self.QBtn.clicked.connect(self.searchpart)
+        layout = QVBoxLayout()
+        
+        self.searchinput = QLineEdit()
+        self.searchinput.setPlaceholderText('Dwg No.')
+        layout.addWidget(self.searchinput)
+        layout.addWidget(self.QBtn)
+        self.setLayout(layout)
+        
+    def searchpart(self):
+        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
+        searchterm = ""
+        searchterm = self.searchinput.text()
+        try:
+            self.conn = sqlite3.connect("dwglog2.db")
+            self.c = self.conn.cursor()
+            result = self.c.execute("SELECT * from ptnos WHERE ((dwg) LIKE" 
+                                    + str("'%" + searchterm + "%'") + ')')
+            
+
+            row = result.fetchone()
+            searchresult = ("Dwgno: " + str(row[1]) + ', Part: ' + str(row[2]) +
+                            ', Descrip: ' + str(row[3]) + 
+                            ', Date: ' + str(row[4]) + ', Author: ' + str(row[5]))
+            
+            #QMessageBox.set
+            QMessageBox.information(QMessageBox(), 'Successful', searchresult)
+            self.conn.commit()
+            self.c.close()
+            self.conn.close()
+        except Exception:
+            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find ' + searchterm)
      
 class DeleteDialog(QDialog):
     def __init__(self, *args, **kwargs):
@@ -156,8 +208,8 @@ class DeleteDialog(QDialog):
         self.setLayout(layout)
         
     def deletepart(self):
-        delrol = ""
-        delrol = self.deleteinput.text()
+        deldwg = ""
+        deldwg = self.deleteinput.text()
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
@@ -199,8 +251,7 @@ class AboutDialog(QDialog):
         
         layout.addWidget(title)
         
-        layout.addWidget(QLabel('v2.0'))
-        layout.addWidget(QLabel('Copyright Okay Dekter 2019'))
+        layout.addWidget(QLabel('version ' + __version__))
         layout.addWidget(labelpic)
         
         layout.addWidget(self.buttonBox)
@@ -212,21 +263,20 @@ class AboutDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
-        self.setWindowIcon(QIcon('icon/g2.png'))
+        self.setWindowIcon(QIcon('icon/dwglog2.ico'))
         
         self.conn = sqlite3.connect('dwglog2.db')
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
-                        ptnos(item INTEGER PRIMARY KEY AUTOINCREMENT
-                        ,dwg TEXT, part TEXT, description TEXT, date TEXT,
-                        author TEXT)''')
+                        ptnos(dwg TEXT PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        description TEXT, date TEXT NOT NULL, author TEXT)''')
         self.c.close()
         
         file_menu = self.menuBar().addMenu('&File')
         
         help_menu = self.menuBar().addMenu('&About')
         self.setWindowTitle('Dekker Drawing Log 2')
-        self.setMinimumSize(750, 600)
+        self.setMinimumSize(850, 600)
         #self.setMaximumSize(800, 1200)
         
         self.tableWidget = QTableWidget()
@@ -238,9 +288,9 @@ class MainWindow(QMainWindow):
         #self.tableWidget.resizeColumnsToContents()
         
         self.tableWidget.setColumnWidth(0, 80)
-        self.tableWidget.setColumnWidth(1, 140)
-        self.tableWidget.setColumnWidth(2, 330)
-        self.tableWidget.setColumnWidth(3, 80)
+        self.tableWidget.setColumnWidth(1, 250)
+        self.tableWidget.setColumnWidth(2, 335)
+        self.tableWidget.setColumnWidth(3, 90)
         self.tableWidget.setColumnWidth(4, 30)
         
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
@@ -266,10 +316,10 @@ class MainWindow(QMainWindow):
         statusbar = QStatusBar()
         self.setStatusBar(statusbar)
         
-        btn_ac_adduser = QAction(QIcon('icon/add2.jpg'), 'AddPart', self)  # add part icon
-        btn_ac_adduser.triggered.connect(self.insert)
-        btn_ac_adduser.setStatusTip('Add Part')
-        toolbar.addAction(btn_ac_adduser)
+        btn_ac_addpart = QAction(QIcon('icon/add2.png'), 'AddPart', self)  # add part icon
+        btn_ac_addpart.triggered.connect(self.insert)
+        btn_ac_addpart.setStatusTip('Add Part')
+        toolbar.addAction(btn_ac_addpart)
         
         btn_ac_refresh = QAction(QIcon('icon/r3.png'), 'Refresh', self)  # refresh icon
         btn_ac_refresh.triggered.connect(self.loaddata)
@@ -278,25 +328,25 @@ class MainWindow(QMainWindow):
         
         btn_ac_search = QAction(QIcon('icon/s1.png'), 'Search', self)  #search icon
         btn_ac_search.triggered.connect(self.search)
-        btn_ac_search.setStatusTip('Search User')
+        btn_ac_search.setStatusTip('Search Parts')
         toolbar.addAction(btn_ac_search)
         
         btn_ac_delete = QAction(QIcon('icon/d1.png'), 'Delete', self)
         btn_ac_delete.triggered.connect(self.delete)
-        btn_ac_delete.setStatusTip('Delete User')
+        btn_ac_delete.setStatusTip('Delete Part')
         toolbar.addAction(btn_ac_delete)
         
-        adduser_action = QAction(QIcon('icon/add2.jpg'), 'Insert Part', self)
-        adduser_action.triggered.connect(self.insert)
-        file_menu.addAction(adduser_action)
+        addpart_action = QAction(QIcon('icon/add2.png'), 'Insert Part', self)
+        addpart_action.triggered.connect(self.insert)
+        file_menu.addAction(addpart_action)
         
-        searchuser_action = QAction(QIcon('icon/s1.png'), 'Search Part', self)
-        searchuser_action.triggered.connect(self.search)
-        file_menu.addAction(searchuser_action)
+        searchpart_action = QAction(QIcon('icon/s1.png'), 'Search Parts', self)
+        searchpart_action.triggered.connect(self.search)
+        file_menu.addAction(searchpart_action)
         
-        deluser_action = QAction(QIcon('icon/i1.png'), 'Delete', self)
-        deluser_action.triggered.connect(self.delete)
-        file_menu.addAction(deluser_action)
+        delpart_action = QAction(QIcon('icon/d1.png'), 'Delete Part', self)
+        delpart_action.triggered.connect(self.delete)
+        file_menu.addAction(delpart_action)
         
         about_action = QAction(QIcon('icon/i1.png'), 'Developer', self) 
         about_action.triggered.connect(self.about)
@@ -312,7 +362,9 @@ class MainWindow(QMainWindow):
         
     def loaddata(self):
         self.connection = sqlite3.connect('dwglog2.db')
-        query = 'SELECT dwg, part, description, date, author FROM ptnos ORDER BY Item DESC'
+        query = ('''SELECT dwg, part, description, strftime("%m/%d/%Y", date), author 
+                    FROM ptnos
+                    ORDER BY dwg DESC''')
         result = self.connection.execute(query)
         self.tableWidget.setRowCount(0)
         for row_number, row_data in enumerate(result):
@@ -350,49 +402,21 @@ class MainWindow(QMainWindow):
         dlg.exec_()
         
         
-def generate_nos(pn):
-    year = date.today().year
-    try:
-        conn = sqlite3.connect("dwglog2.db")
-        c = conn.cursor()
-        c.execute("SELECT MAX(dwg) FROM ptnos") 
-        largest_as_str = c.fetchone()[0]
-        if str(year) > largest_as_str:  # if true, tnen a new year.
-            dwgno = str(year*1000 + 1)
-        else:
-            dwgno = str(int(largest_as_str) + 1)
-        largestNum = int(c.fetchone()[0])  # largest dwg no., as int
-        conn.commit()
-        c.close()
-        conn.close()   
-    except Exception:
-        QMessageBox.warning(QMessageBox(), 
-            'Error', ('Part nos. not found in the data base.  Reinitiating.'
-                      'Edit dwg no. manually to give dwg. nos. a new starting point.'
-                      ))
-        dwgno = str(int(year)*1000 + 1)
-    if int(year)*1000 > largestNum:
-        return(dwgno, '0300-2020-111') 
-    else:
-        return(dwgno, '0300-2020-111')
-    
-
 def generate_nos(largestDwgNo, partNo):
     partNo = partNo.strip()  # partNo is a string
     year = date.today().year  # year is a float
     if str(year) > largestDwgNo:  # A new year!
         dwgNo = str(year*1000 + 1)
-    elif partNo.isnumeric() and len(partNo) == 6:  # if is production no. like 091088
-        dwgNo = partNo
+    #elif partNo.isnumeric() and len(partNo) == 6:  # if is production no. like 091088
+    #    dwgNo = partNo
     else:
         dwgNo = str(int(largestDwgNo) + 1)
-        
     if ((partNo.isnumeric() and len(partNo) == 4) or
            (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
         partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]
-    elif ((len(partNo) == 9 or len(partNo) == 10) and partNo[4] == '-'
-            and partNo[:4].isnumeric() and partNo[5:9].isnumeric()):
-        partNo = partNo[:9] + '-' + dwgNo[4:]
+    #elif ((len(partNo) == 9 or len(partNo) == 10) and partNo[4] == '-'
+    #        and partNo[:4].isnumeric() and partNo[5:9].isnumeric()):
+    #    partNo = partNo[:9] + '-' + dwgNo[4:]
             
     return dwgNo, partNo    
     
