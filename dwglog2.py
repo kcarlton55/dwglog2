@@ -43,9 +43,13 @@ class InsertDialog(QDialog):
         self.descriptioninput.setMaxLength(40)
         layout.addWidget(self.descriptioninput)
                 
-        self.authorinput = QLineEdit()
-        self.authorinput.setPlaceholderText('Author')
-        layout.addWidget(self.authorinput)
+
+# =============================================================================
+#         self.authorinput = QLineEdit()
+#         self.authorinput.setPlaceholderText('Author')
+#         layout.addWidget(self.authorinput)
+# =============================================================================
+
         
         self.QBtn = QPushButton('text-align:center')
         self.QBtn.setText("OK")
@@ -60,8 +64,11 @@ class InsertDialog(QDialog):
     def addpart(self):
         part = ""
         description = ""
-        author = ""
+        author = "unknown"
         
+        if os.getenv('USERNAME'):
+            author = os.getenv('USERNAME')  # Works only on MS Windows
+            author.replace('_', '')         
         
         #dwgno, part = generate_nos(part)
         #dwgno = '091088'
@@ -71,13 +78,25 @@ class InsertDialog(QDialog):
         now = datetime.now()
         _date = now.strftime("%Y-%m-%d %H:%M:%S")
         # _date = date.today()
+<<<<<<< HEAD
+        #author = self.authorinput.text()
+=======
         author = self.authorinput.text()
+>>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
         
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
+<<<<<<< HEAD
+            
+            # self.c.execute("SELECT MAX(dwg) FROM ptnos")
+            # result = self.c.fetchone()[0]
+            self.c.execute("SELECT dwg FROM ptnos")
+            result = self.c.fetchall()
+=======
             self.c.execute("SELECT MAX(dwg) FROM ptnos") 
             result = self.c.fetchone()[0]
+>>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
             dwgno, part = generate_nos(result, part)       
             self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
                            (dwgno, part, description, _date,author))
@@ -142,6 +161,61 @@ class SearchDialog(QDialog):
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')
  
+<<<<<<< HEAD
+            
+class SearchDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        super(SearchDialog, self).__init__(*args, **kwargs)
+        
+        self.QBtn = QPushButton()
+        self.QBtn.setText('Search')
+        
+        self.setWindowTitle('Seach part')
+        self.setFixedWidth(300)
+        self.setFixedHeight(100)
+        self.QBtn.clicked.connect(self.searchpart)
+        layout = QVBoxLayout()
+        
+        self.searchinput = QLineEdit()
+        self.searchinput.setPlaceholderText('Dwg No.')
+        layout.addWidget(self.searchinput)
+        layout.addWidget(self.QBtn)
+        self.setLayout(layout)
+        
+    def searchpart(self):
+        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
+        searchterm = ""
+        searchterm = self.searchinput.text()
+        try:
+            self.conn = sqlite3.connect("dwglog2.db")
+            self.c = self.conn.cursor()
+# =============================================================================
+#             result = self.c.execute("SELECT * from ptnos WHERE ((dwg+part+description+date+author) LIKE " 
+#                                     + str("'%" + searchterm + "%'") + ')')
+# =============================================================================
+            print('aaa')
+            sqlSelect = ("SELECT * from ptnos WHERE " +
+                         "(dwg LIKE %" + searchterm + "%) OR " +
+                         "(part LIKE %" + searchterm + "%)")
+            
+            sqlSelect = ("SELECT * from ptnos WHERE " +
+                         "dwg LIKE %" + searchterm + "%")
+            print(sqlSelect)
+            
+            result = self.c.execute(sqlSelect)
+            
+
+            row = result.fetchone()
+            print(row)
+# =============================================================================
+#             searchresult = ("Dwgno: " + str(row[1]) + ', Part: ' + str(row[2]) +
+#                             ', Descrip: ' + str(row[3]) + 
+#                             ', Date: ' + str(row[4]) + ', Author: ' + str(row[5]))
+# =============================================================================
+            searchresult = row[0] + row[1] + row[2] + row[3] + row[4]
+            
+            print('ccc')
+=======
             
 class SearchDialog(QDialog):
     def __init__(self, *args, **kwargs):
@@ -177,6 +251,7 @@ class SearchDialog(QDialog):
             searchresult = ("Dwgno: " + str(row[1]) + ', Part: ' + str(row[2]) +
                             ', Descrip: ' + str(row[3]) + 
                             ', Date: ' + str(row[4]) + ', Author: ' + str(row[5]))
+>>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
             
             #QMessageBox.set
             QMessageBox.information(QMessageBox(), 'Successful', searchresult)
@@ -325,16 +400,32 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.triggered.connect(self.loaddata)
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
-        
+ 
         btn_ac_search = QAction(QIcon('icon/s1.png'), 'Search', self)  #search icon
         btn_ac_search.triggered.connect(self.search)
         btn_ac_search.setStatusTip('Search Parts')
         toolbar.addAction(btn_ac_search)
+       
+
         
         btn_ac_delete = QAction(QIcon('icon/d1.png'), 'Delete', self)
         btn_ac_delete.triggered.connect(self.delete)
         btn_ac_delete.setStatusTip('Delete Part')
         toolbar.addAction(btn_ac_delete)
+
+#-----------
+        
+<<<<<<< HEAD
+        self.searchinput = QLineEdit()
+        self.searchinput.setPlaceholderText('Text to search for')
+        self.searchinput.setMaxLength(40)
+        self.searchinput.returnPressed.connect(self.searchpart)
+        toolbar.addWidget(self.searchinput)
+        
+        
+
+    
+#-----------        
         
         addpart_action = QAction(QIcon('icon/add2.png'), 'Insert Part', self)
         addpart_action.triggered.connect(self.insert)
@@ -344,6 +435,16 @@ class MainWindow(QMainWindow):
         searchpart_action.triggered.connect(self.search)
         file_menu.addAction(searchpart_action)
         
+=======
+        addpart_action = QAction(QIcon('icon/add2.png'), 'Insert Part', self)
+        addpart_action.triggered.connect(self.insert)
+        file_menu.addAction(addpart_action)
+        
+        searchpart_action = QAction(QIcon('icon/s1.png'), 'Search Parts', self)
+        searchpart_action.triggered.connect(self.search)
+        file_menu.addAction(searchpart_action)
+        
+>>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
         delpart_action = QAction(QIcon('icon/d1.png'), 'Delete Part', self)
         delpart_action.triggered.connect(self.delete)
         file_menu.addAction(delpart_action)
@@ -401,7 +502,78 @@ class MainWindow(QMainWindow):
         dlg = AboutDilog()
         dlg.exec_()
         
+    def onPressed(self):
+        self.label.setText(self.lineedit.text())
+          
+    def searchpart(self):
+        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
+        #searchrol = ""
+        # https://codeloop.org/pyqt5-creating-qlineedit-with-returnpressed-signal/
+        searchrol = self.searchinput.text()
+        print('ccc', searchrol)
+        try:
+            self.conn = sqlite3.connect("dwglog2.db")
+            self.c = self.conn.cursor()
+            result = self.c.execute("SELECT * from ptnos WHERE dwg=" + str(searchrol))
+            row = result.fetchone()
+            print('ddd', row)
+            searchresult = ("Dwgno: " + str(row[0]) + '\nPart: ' + str(row[1]) +
+                            '\nDescription: ' + str(row[2]) + 
+                            '\nDate: ' + str(row[3]) + '\nAuthor: ' + str(row[4]))
+            QMessageBox.information(QMessageBox(), 'Successful', searchresult)
+            self.conn.commit()
+            self.c.close()
+            self.conn.close()
+        except Exception:
+            QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')        
         
+<<<<<<< HEAD
+        
+def generate_nos(dwg_nos, partNo):
+    '''
+    Generate a new drawing number and a new part no.
+
+    Parameters
+    ----------
+    dwg_nos: list
+        A list of tuples derived from the dwg column of the prtnos table of the
+        dwglog2.db sqlite database file.  The list has a form like:
+        [('2020048',), ('2020049',), ('2020050',)]
+            
+    partNo: str
+        Part no. given by the user.
+
+    Returns
+    -------
+    dwgNo: str
+        A new drawing no. to add to the dwglog2.db file, e.g. '2020051'
+    partNo: str
+        Same PartNo as input to this function unless autofill kicks in to
+        change nos. from, for example, '0300' to '0300-2020-051', or 
+        '6521' to '6521-2020-051'.
+    '''
+    year = date.today().year  # current year, e.g. 2020 (an int)
+    int_list = []
+    for x in dwg_nos:  # dwg_nos has a form like [('2020048',), ('2020049',), ('2020050',)]
+        if len(x[0])>6 and x[0].isnumeric() and year == int(x[0][:4]):
+            int_list.append(int(x[0][4:])) # e.g. 48, 49, and 50 from "2020048", "2020049", and "2020050"          
+    if int_list:
+        max_int = max(int_list)                # e.g. 50
+        dwg_prefix = str(max_int + 1)          # e.g. "51"
+        if len(dwg_prefix) > 3:
+            _len = -1 * len(dwg_prefix)
+        else:
+            _len = -3
+        dwg_prefix = dwg_prefix.zfill(10)[_len:]  # e.g. filled: "51" to "051"
+        dwgNo = str(year) + dwg_prefix         # e.g. a new dwg no.: "2020051"
+    else:
+        dwgNo = str(year) + '001'  # if no ints in list, then is 1st dwg no. for a new year
+    if ((partNo.isnumeric() and len(partNo) == 4) or
+           (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
+        partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]  # e.g. "0300" to "0300-2020-051"
+    return dwgNo, partNo
+    
+=======
 def generate_nos(largestDwgNo, partNo):
     partNo = partNo.strip()  # partNo is a string
     year = date.today().year  # year is a float
@@ -419,6 +591,7 @@ def generate_nos(largestDwgNo, partNo):
     #    partNo = partNo[:9] + '-' + dwgNo[4:]
             
     return dwgNo, partNo    
+>>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
     
 
         
