@@ -9,6 +9,6 @@ version = 0.2.0
 <<<<<<< HEAD
 recent_files = ['../../.config/spyder-py3/temp.py', 'dwglog2.py', '../project1/bomcheck.py', '../../tmp2/temp2.py']
 =======
-recent_files = ['../../.config/spyder-py3/temp.py', 'dwglog2.py', 'import_csv.py', '../project1/bomcheck.py']
+recent_files = ['../../.config/spyder-py3/temp.py', 'dwglog2.py', '../project1/bomcheck.py', 'dwglog2_convert.py']
 >>>>>>> 7e4232f68a8f716213c57e4ab8f7714beda4bd75
 
