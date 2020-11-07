@@ -83,8 +83,11 @@ class InsertDialog(QDialog):
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("SELECT MAX(dwg) FROM ptnos") 
-            result = self.c.fetchone()[0]
+            
+            # self.c.execute("SELECT MAX(dwg) FROM ptnos")
+            # result = self.c.fetchone()[0]
+            self.c.execute("SELECT dwg FROM ptnos")
+            result = self.c.fetchall()
             dwgno, part = generate_nos(result, part)       
             self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
                            (dwgno, part, description, _date,author))
@@ -467,23 +470,50 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')        
         
         
-def generate_nos(largestDwgNo, partNo):
-    partNo = partNo.strip()  # partNo is a string
-    year = date.today().year  # year is a float
-    if str(year) > largestDwgNo:  # A new year!
-        dwgNo = str(year*1000 + 1)
-    #elif partNo.isnumeric() and len(partNo) == 6:  # if is production no. like 091088
-    #    dwgNo = partNo
+def generate_nos(dwg_nos, partNo):
+    '''
+    Generate a new drawing number and a new part no.
+
+    Parameters
+    ----------
+    dwg_nos: list
+        A list of tuples derived from the dwg column of the prtnos table of the
+        dwglog2.db sqlite database file.  The list has a form like:
+        [('2020048',), ('2020049',), ('2020050',)]
+            
+    partNo: str
+        Part no. given by the user.
+
+    Returns
+    -------
+    dwgNo: str
+        A new drawing no. to add to the dwglog2.db file, e.g. '2020051'
+    partNo: str
+        Same PartNo as input to this function unless autofill kicks in to
+        change nos. from, for example, '0300' to '0300-2020-051', or 
+        '6521' to '6521-2020-051'.
+    '''
+    year = date.today().year  # current year, e.g. 2020 (an int)
+    int_list = []
+    for x in dwg_nos:  # dwg_nos has a form like [('2020048',), ('2020049',), ('2020050',)]
+        if len(x[0])>6 and x[0].isnumeric() and year == int(x[0][:4]):
+            int_list.append(int(x[0][4:])) # e.g. 48, 49, and 50 from "2020048", "2020049", and "2020050"          
+    if int_list:
+        max_int = max(int_list)                # e.g. 50
+        dwg_prefix = str(max_int + 1)          # e.g. "51"
+        if len(dwg_prefix) > 3:
+            _len = -1 * len(dwg_prefix)
+        else:
+            _len = -3
+        dwg_prefix = dwg_prefix.zfill(10)[_len:]  # e.g. filled: "51" to "051"
+        dwgNo = str(year) + dwg_prefix         # e.g. a new dwg no.: "2020051"
     else:
-        dwgNo = str(int(largestDwgNo) + 1)
+        dwgNo = str(year) + '001'  # if no ints in list, then is 1st dwg no. for a new year
     if ((partNo.isnumeric() and len(partNo) == 4) or
            (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
-        partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]
-    #elif ((len(partNo) == 9 or len(partNo) == 10) and partNo[4] == '-'
-    #        and partNo[:4].isnumeric() and partNo[5:9].isnumeric()):
-    #    partNo = partNo[:9] + '-' + dwgNo[4:]
-            
-    return dwgNo, partNo    
+        partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]  # e.g. "0300" to "0300-2020-051"
+    return dwgNo, partNo
+    
     
 
         
