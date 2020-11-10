@@ -42,15 +42,7 @@ class InsertDialog(QDialog):
         self.descriptioninput.setPlaceholderText('Description')
         self.descriptioninput.setMaxLength(40)
         layout.addWidget(self.descriptioninput)
-                
-
-# =============================================================================
-#         self.authorinput = QLineEdit()
-#         self.authorinput.setPlaceholderText('Author')
-#         layout.addWidget(self.authorinput)
-# =============================================================================
-
-        
+                        
         self.QBtn = QPushButton('text-align:center')
         self.QBtn.setText("OK")
         self.QBtn.setMaximumWidth(75)
@@ -69,23 +61,15 @@ class InsertDialog(QDialog):
         if os.getenv('USERNAME'):
             author = os.getenv('USERNAME')  # Works only on MS Windows
             author.replace('_', '')         
-        
-        #dwgno, part = generate_nos(part)
-        #dwgno = '091088'
-        
+
         part = self.partinput.text().upper().strip()
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%Y-%m-%d %H:%M:%S")
-        # _date = date.today()
-        #author = self.authorinput.text()
         
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            
-            # self.c.execute("SELECT MAX(dwg) FROM ptnos")
-            # result = self.c.fetchone()[0]
             self.c.execute("SELECT dwg FROM ptnos")
             result = self.c.fetchall()
             dwgno, part = generate_nos(result, part)       
@@ -112,108 +96,7 @@ class InsertDialog(QDialog):
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
             
-class SearchDialog(QDialog):
-    def __init__(self, *args, **kwargs):
-        super(SearchDialog, self).__init__(*args, **kwargs)
-        
-        self.QBtn = QPushButton()
-        self.QBtn.setText('Search')
-        
-        self.setWindowTitle('Seach part')
-        self.setFixedWidth(300)
-        self.setFixedHeight(100)
-        self.QBtn.clicked.connect(self.searchpart)
-        layout = QVBoxLayout()
-        
-        self.searchinput = QLineEdit()
-        self.onlyInt = QIntValidator()
-        self.searchinput.setValidator(self.onlyInt)
-        self.searchinput.setPlaceholderText('Dwg No.')
-        layout.addWidget(self.searchinput)
-        layout.addWidget(self.QBtn)
-        self.setLayout(layout)
-        
-    def searchpart(self):
-        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
-        searchrol = ""
-        searchrol = self.searchinput.text()
-        try:
-            self.conn = sqlite3.connect("dwglog2.db")
-            self.c = self.conn.cursor()
-            result = self.c.execute("SELECT * from ptnos WHERE dwg=" + str(searchrol))
-            row = result.fetchone()
-            searchresult = ("Dwgno: " + str(row[1]) + '\nPart: ' + str(row[2]) +
-                            '\nDescription: ' + str(row[3]) + 
-                            '\nDate: ' + str(row[4]) + '\nAuthor: ' + str(row[5]))
-            QMessageBox.information(QMessageBox(), 'Successful', searchresult)
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
-        except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')
- 
-            
-class SearchDialog(QDialog):
-    def __init__(self, *args, **kwargs):
-        super(SearchDialog, self).__init__(*args, **kwargs)
-        
-        self.QBtn = QPushButton()
-        self.QBtn.setText('Search')
-        
-        self.setWindowTitle('Seach part')
-        self.setFixedWidth(300)
-        self.setFixedHeight(100)
-        self.QBtn.clicked.connect(self.searchpart)
-        layout = QVBoxLayout()
-        
-        self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('Dwg No.')
-        layout.addWidget(self.searchinput)
-        layout.addWidget(self.QBtn)
-        self.setLayout(layout)
-        
-    def searchpart(self):
-        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
-        searchterm = ""
-        searchterm = self.searchinput.text()
-        try:
-            self.conn = sqlite3.connect("dwglog2.db")
-            self.c = self.conn.cursor()
-# =============================================================================
-#             result = self.c.execute("SELECT * from ptnos WHERE ((dwg+part+description+date+author) LIKE " 
-#                                     + str("'%" + searchterm + "%'") + ')')
-# =============================================================================
-            print('aaa')
-            sqlSelect = ("SELECT * from ptnos WHERE " +
-                         "(dwg LIKE %" + searchterm + "%) OR " +
-                         "(part LIKE %" + searchterm + "%)")
-            
-            sqlSelect = ("SELECT * from ptnos WHERE " +
-                         "dwg LIKE %" + searchterm + "%")
-            print(sqlSelect)
-            
-            result = self.c.execute(sqlSelect)
-            
 
-            row = result.fetchone()
-            print(row)
-# =============================================================================
-#             searchresult = ("Dwgno: " + str(row[1]) + ', Part: ' + str(row[2]) +
-#                             ', Descrip: ' + str(row[3]) + 
-#                             ', Date: ' + str(row[4]) + ', Author: ' + str(row[5]))
-# =============================================================================
-            searchresult = row[0] + row[1] + row[2] + row[3] + row[4]
-            
-            print('ccc')
-            
-            #QMessageBox.set
-            QMessageBox.information(QMessageBox(), 'Successful', searchresult)
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
-        except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find ' + searchterm)
-     
 class DeleteDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super(DeleteDialog, self).__init__(*args, **kwargs)
@@ -353,25 +236,26 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.triggered.connect(self.loaddata)
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
- 
-        btn_ac_search = QAction(QIcon('icon/s1.png'), 'Search', self)  #search icon
-        btn_ac_search.triggered.connect(self.search)
-        btn_ac_search.setStatusTip('Search Parts')
-        toolbar.addAction(btn_ac_search)
        
-
-        
         btn_ac_delete = QAction(QIcon('icon/d1.png'), 'Delete', self)
         btn_ac_delete.triggered.connect(self.delete)
         btn_ac_delete.setStatusTip('Delete Part')
         toolbar.addAction(btn_ac_delete)
+        
+        empty_label = QLabel()
+        empty_label.setText('         ')
+        toolbar.addWidget(empty_label)
 
 #-----------
         
         self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('Text to search for')
+        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* and kcarlton)')
         self.searchinput.setMaxLength(40)
+        self.searchinput.setToolTip('"and" must be lower case.  Dates to in format YYYY-MM-DD ' +
+                                    '(e.g. 2020-05-03).\n  Search is case sensitive. ' +
+                                    'Search implements "GLOB" characters (*, ?, [, ])')
         self.searchinput.returnPressed.connect(self.searchpart)
+
         toolbar.addWidget(self.searchinput)
         
         
@@ -451,24 +335,109 @@ class MainWindow(QMainWindow):
         #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
         #searchrol = ""
         # https://codeloop.org/pyqt5-creating-qlineedit-with-returnpressed-signal/
-        searchrol = self.searchinput.text()
-        print('ccc', searchrol)
+        searchterm = self.searchinput.text()
+        searchlist = searchterm.split(' and ')
         try:
             self.conn = sqlite3.connect("dwglog2.db")
             self.c = self.conn.cursor()
-            result = self.c.execute("SELECT * from ptnos WHERE dwg=" + str(searchrol))
-            row = result.fetchone()
-            print('ddd', row)
-            searchresult = ("Dwgno: " + str(row[0]) + '\nPart: ' + str(row[1]) +
-                            '\nDescription: ' + str(row[2]) + 
-                            '\nDate: ' + str(row[3]) + '\nAuthor: ' + str(row[4]))
+            tables = tables_in_sqlite_db(self.conn)
+            print(tables)
+            s = set()
+            for i in searchlist:
+                l = []                
+                for j in ('dwg', 'part', 'description', 'date', 'author'):
+                    sqlSelect = ("SELECT * from ptnos WHERE " + j + 
+                                 " GLOB '" + str(i) + "'")
+                    result = self.c.execute(sqlSelect)            
+                    rows = result.fetchall()
+                    l = l + rows
+                if len(s) == 0:
+                    s = set(l)
+                else:
+                    s = s & set(l) 
+            _list = list(s)
+            _list = sorted(_list, reverse=True)
+            srch = SearchResults(_list)
+            srch.exec_()
+                    
+            
             QMessageBox.information(QMessageBox(), 'Successful', searchresult)
             self.conn.commit()
             self.c.close()
             self.conn.close()
         except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not Find ptnos from the dwglog2 database.')        
+            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')        
         
+
+class SearchResults(QDialog):        
+    def __init__(self, found, parent=None):
+        self.found = found
+        super(SearchResults, self).__init__(parent)
+        self.setWindowTitle('Search Results')
+        self.setMinimumSize(850, 600)
+        self.r_max = len(self.found)
+        self.c_max = len(self.found[0])
+        self.values = {}
+        for r in range(self.r_max):
+             for c in range(self.c_max):
+                self.values[(r, c)] = found[r][c] 
+        self.tableWidget = QTableWidget()   
+        self.tableWidget.setColumnCount(5)
+        self.tableWidget.verticalHeader().setVisible(False)
+        self.tableWidget.setColumnWidth(0, 80)
+        self.tableWidget.setColumnWidth(1, 250)
+        self.tableWidget.setColumnWidth(2, 335)
+        self.tableWidget.setColumnWidth(3, 90)
+        self.tableWidget.setColumnWidth(4, 30)
+        layout = QVBoxLayout()
+        layout.addWidget(self.tableWidget)
+        self.setLayout(layout)
+        self.refreshTable()
+        
+    def refreshTable(self):             
+        self.tableWidget.clear()
+        self.tableWidget.setColumnCount(self.c_max)
+        self.tableWidget.setRowCount(self.r_max)
+        self.tableWidget.setHorizontalHeaderLabels(['Dwg No.', 'Part No.',
+                                            'Description', 'Date', 'Author'])
+        for r in range(self.r_max):
+            for c in range(self.c_max):
+                print('bbb')
+                if c == 3:
+                    print('dddddddddd')
+                    d = datetime.fromisoformat(self.found[r][c])
+                    item = QTableWidgetItem(d.strftime("%m/%d/%Y"))
+                else:
+                    item = QTableWidgetItem(self.found[r][c])
+                print(item)
+                item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter)
+                self.tableWidget.setItem(r, c, item)
+ 
+    def setNumberFormat1(self):
+        dialog = numberformatdlg1.NumberFormatDlg(self.format, self)
+        if dialog.exec_():
+            self.format = dialog.numberFormat()
+            self.refreshTable()
+            
+    def setNumberFormat2(self):
+        dialog = numberformatdlg2.NumberFormatDlg(self.format, self)
+        dialog.changed.connect(self.refreshTable)
+        
+        dialog.show()
+        
+    def setNumberFormat3(self):
+        if self.numberFormatDlg is None:
+            self.numberFormatDlg = numberformatdlg3.NumberFormatDlg(
+                    self.format, self.refreshTable, self)
+        self.numberFormatDlg.show()
+        self.numberFormatDlg.raise_()
+        self.numberFormatDlg.activateWindow()
+
+
+
+
+
+
         
 def generate_nos(dwg_nos, partNo):
     '''
@@ -514,7 +483,16 @@ def generate_nos(dwg_nos, partNo):
         partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]  # e.g. "0300" to "0300-2020-051"
     return dwgNo, partNo
     
-    
+
+def tables_in_sqlite_db(conn):
+    # https://techoverflow.net/2019/10/14/how-to-list-tables-in-sqlite3-database-in-python/
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [
+        v[0] for v in cursor.fetchall()
+        if v[0] != "sqlite_sequence"
+    ]
+    cursor.close()
+    return tables
 
         
         

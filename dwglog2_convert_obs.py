@@ -8,12 +8,13 @@ Created on Wed Oct 28 22:42:04 2020
 ref: https://www.fullstackpython.com/blog/export-pandas-dataframes-sqlite-sqlalchemy.html
 
 """
+
 import argparse
 import sys
 import os
 import tempfile
 import pandas as pd
-import sqlalchemy
+from sqlalchemy import create_engine
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
@@ -22,13 +23,14 @@ pd.set_option('display.width', 200)
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                        description='Given a csv or Excel file, convert it to a ' +
-                        'sqlite database file.  Or given a sqlite database file, convert it ' +
-                        'to an Excel file.  Input files must have been created ' +
-                        "with the Dekker's old drawing log program or with with the " +
-                        'new dwglog2 program.')
+                        description='Program converts a csv file to a sqlite database ' +
+                        'file.  The csv file is derived from the database data of ' +
+                        "Dekker's original Drawing Log program, or from the " +
+                        'sqlite database from the Drawing Log 2 program.  The latter ' +
+                        'program is a replacement for the former.')
     parser.add_argument('file_in', help='Name of file to import.')
-    parser.add_argument('file_out', help='Name of file to export.', default='dwglog2.db')
+    parser.add_argument('file_out', help='Name of file to export.')
+ 
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -36,19 +38,19 @@ def main():
     dwglog2_convert(args.file_in, args.file_out)
     
     
-def dwglog2_convert(fn_in, fn_out='dwglog2.db'):
-    _, ext_in = os.path.splitext(fn_in)
-    _, ext_out = os.path.splitext(fn_out)
-    viable = ['.csv', '.txt', '.xls', '.xlsx']
-    if ext_in in viable and ext_out == '.db':
-        excel2db(fn_in, fn_out)
-    elif ext_in == '.db' and ext_out in viable:
-        db2excel(fn_in, fn_out)
+def dwglog2_convert(fn_in, fn_out):
+    _, file_extension = os.path.splitext(fn_in)
+    if (file_extension.lower() == '.csv' or file_extension.lower() == '.txt' or
+            file_extension.lower() == '.xls' or file_extension.lower() == '.xlsx'):
+        df = import_excel(fn_in)
+        export2db(fn_out, df)
+    elif file_extension.lower() == '.db':
+        pass
     else:
-        print('Invalid file name.  Did file name end with .csv, .txt, .xls, .xlsx, or .db?')
+        print('Invalid file type')
     
-        
-def excel2db(fn_in, fn_out='dwglog2.db'):
+    
+def import_excel(fn_in):
     try:
         _, file_extension = os.path.splitext(fn_in)
         if file_extension.lower() == '.csv' or file_extension.lower() == '.txt':
@@ -63,38 +65,24 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
             temp.close()
         elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(fn_in, na_values=[' '])
-        df.rename(columns={'Dwg No.':'dwg', 'Part No.':'part', 
-                           'Description':'description', 'Date':'date', 
-                           'Author':'author'}, inplace=True)
-        if 'Size' in df.columns:
-            del df['Size']
-        #print(datetime.strptime(df['date'], "%m/%d/%Y").strftime("%Y-%m-%d"))
-        df['date'] = pd.to_datetime(df['date'])
-        print('Data sucessfully imported.')
-        # code to export to sqlite db file:
-        engine = sqlalchemy.create_engine('sqlite:///' + fn_out, echo=True)
-        sqlite_connection = engine.connect()
-        df.to_sql("ptnos", sqlite_connection, if_exists='fail',
-                  dtype={'dwg':sqlalchemy.types.NVARCHAR(length=10),
-                         'part':sqlalchemy.types.NVARCHAR(length=32),
-                         'description':sqlalchemy.types.NVARCHAR(length=42),
-                         'date':sqlalchemy.types.NVARCHAR(length=20),
-                         'author':sqlalchemy.types.NVARCHAR(length=20)})
-        sqlite_connection.close()
-        print('Data sucessfully exported to ' + fn_out)
-
-
+            colnames = []
+            for colname in df.columns:  # rid colname of '\n' char if exists
+                colnames.append(colname.replace('\n', ''))
+            df.columns = colnames
+        print('Data sucessfully imported')
     except:
-        printStr = '\nError processing file: ' + fn_in + '\n'
+        printStr = '\nError processing file: ' + fn_in + '\nIt has been excluded from the BOM check.\n'
         print(printStr)
-        
+    return df
     
-def db2excel():
+    
+
+def export2db(fn_out, df):
     pass
 
+def export2excel():
+    pass
 
-def date2USAformat():
-    pass  
 
 
 def make_csv_file_stable(filename):
