@@ -13,7 +13,7 @@ import sys
 import os
 import tempfile
 import pandas as pd
-import sqlalchemy
+import sqlite3
 pd.set_option('display.max_rows', 150)
 pd.set_option('display.max_columns', 10)
 pd.set_option('display.max_colwidth', 100)
@@ -22,13 +22,15 @@ pd.set_option('display.width', 200)
 
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                        description='Given a csv or Excel file, convert it to a ' +
-                        'sqlite database file.  Or given a sqlite database file, convert it ' +
-                        'to an Excel file.  Input files must have been created ' +
-                        "with the Dekker's old drawing log program or with with the " +
-                        'new dwglog2 program.')
-    parser.add_argument('file_in', help='Name of file to import.')
-    parser.add_argument('file_out', help='Name of file to export.', default='dwglog2.db')
+                        description="If it doesn't already exist, create an sqlite database file " +
+                        'named dwglog2.db and import data from a csv or Excel file into it.  If the file ' +
+                        'database file already exist, append data from a csv or Excel file to the ' +
+                        "existing data.  The table within the database " +
+                        'file will be named "ptnos".  Column names are dwg, part, description, ' +
+                        'date, and author.  Data types for all data will be text.  The ' +
+                        'format of dates will be YYYY-MM-DD')
+    parser.add_argument('file_in', help='Name of file Excel or csv file to import.')
+    parser.add_argument('file_out', help='Name of file to export to.', default='dwglog2.db')
     if len(sys.argv)==1:
         parser.print_help(sys.stderr)
         sys.exit(1)
@@ -66,34 +68,53 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
         df.rename(columns={'Dwg No.':'dwg', 'Part No.':'part', 
                            'Description':'description', 'Date':'date', 
                            'Author':'author'}, inplace=True)
-        if 'Size' in df.columns:
+        if 'Size' in df.columns:  # New dwglog2 program will not deal with sheet sizes: A, B, C, D
             del df['Size']
-        #print(datetime.strptime(df['date'], "%m/%d/%Y").strftime("%Y-%m-%d"))
+
         df['date'] = pd.to_datetime(df['date'])
-        print('Data sucessfully imported.')
-        # code to export to sqlite db file:
-        engine = sqlalchemy.create_engine('sqlite:///' + fn_out, echo=True)
-        sqlite_connection = engine.connect()
-        df.to_sql("ptnos", sqlite_connection, if_exists='fail',
-                  dtype={'dwg':sqlalchemy.types.NVARCHAR(length=10),
-                         'part':sqlalchemy.types.NVARCHAR(length=32),
-                         'description':sqlalchemy.types.NVARCHAR(length=42),
-                         'date':sqlalchemy.types.NVARCHAR(length=20),
-                         'author':sqlalchemy.types.NVARCHAR(length=20)})
-        sqlite_connection.close()
+        print('Working...')
+        df.sort_values(by=['dwg'], inplace=True, ascending=True)
+        
+        # code to export to sqlite db file:                
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS 
+                        ptnos(dwg TEXT PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        description TEXT, date TEXT NOT NULL, author TEXT)''')                        
+        df_dict = df.to_dict()        
+        len_dict = len(df_dict['dwg'])
+        
+        not_unique = []
+        for i in range(len_dict):
+            dwg = str(df_dict['dwg'][i])
+            part = str(df_dict['part'][i])
+            description = str(df_dict['description'][i])
+            date = df_dict['date'][i]
+            author = str(df_dict['author'][i])
+            _date = date.strftime("%Y-%m-%d")
+            try:
+                c.execute("INSERT INTO ptnos (dwg, part, description, date, author) VALUES (?,?,?,?,?)",
+                                             (dwg, part, description, _date, author))
+                conn.commit()
+                print("{:9} {:32} {:42} {:12} {:14}".format(dwg, part, description, _date, author))  
+            except:
+                not_unique.append(dwg)             
+        c.close()
+        conn.close()
         print('Data sucessfully exported to ' + fn_out)
-
-
+        if not_unique:
+            print('Some drawing numbers from the imported file were not unique and have been discarded: ')
+            print(not_unique)
     except:
         printStr = '\nError processing file: ' + fn_in + '\n'
-        print(printStr)
+        print(printStr) 
         
-    
-def db2excel():
+
+def db2excel():  # todo
     pass
 
 
-def date2USAformat():
+def date2USAformat():  # todo
     pass  
 
 

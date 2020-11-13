@@ -359,8 +359,7 @@ class MainWindow(QMainWindow):
             _list = sorted(_list, reverse=True)
             srch = SearchResults(_list)
             srch.exec_()
-                    
-            
+                     
             QMessageBox.information(QMessageBox(), 'Successful', searchresult)
             self.conn.commit()
             self.c.close()
@@ -393,6 +392,7 @@ class SearchResults(QDialog):
         layout.addWidget(self.tableWidget)
         self.setLayout(layout)
         self.refreshTable()
+        print('eeee')
         
     def refreshTable(self):             
         self.tableWidget.clear()
@@ -402,10 +402,11 @@ class SearchResults(QDialog):
                                             'Description', 'Date', 'Author'])
         for r in range(self.r_max):
             for c in range(self.c_max):
-                print('bbb')
+                print('c=', c, self.found[r][c])
                 if c == 3:
                     print('dddddddddd')
                     d = datetime.fromisoformat(self.found[r][c])
+                    print('333333')
                     item = QTableWidgetItem(d.strftime("%m/%d/%Y"))
                 else:
                     item = QTableWidgetItem(self.found[r][c])
@@ -413,31 +414,6 @@ class SearchResults(QDialog):
                 item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter)
                 self.tableWidget.setItem(r, c, item)
  
-    def setNumberFormat1(self):
-        dialog = numberformatdlg1.NumberFormatDlg(self.format, self)
-        if dialog.exec_():
-            self.format = dialog.numberFormat()
-            self.refreshTable()
-            
-    def setNumberFormat2(self):
-        dialog = numberformatdlg2.NumberFormatDlg(self.format, self)
-        dialog.changed.connect(self.refreshTable)
-        
-        dialog.show()
-        
-    def setNumberFormat3(self):
-        if self.numberFormatDlg is None:
-            self.numberFormatDlg = numberformatdlg3.NumberFormatDlg(
-                    self.format, self.refreshTable, self)
-        self.numberFormatDlg.show()
-        self.numberFormatDlg.raise_()
-        self.numberFormatDlg.activateWindow()
-
-
-
-
-
-
         
 def generate_nos(dwg_nos, partNo):
     '''
