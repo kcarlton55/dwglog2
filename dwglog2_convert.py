@@ -65,8 +65,9 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
             temp.close()
         elif file_extension.lower() == '.xlsx' or file_extension.lower() == '.xls':
             df = pd.read_excel(fn_in, na_values=[' '])
-        df.rename(columns={'Dwg No.':'dwg', 'Part No.':'part', 
-                           'Description':'description', 'Date':'date', 
+        df.rename(columns={'Dwg No.':'dwg', 'Drawing Number':'dwg', 'Part No.':'part',
+                           'Part Number':'part', 'Sheet Size':'Size',
+                           'Description':'description', 'Date':'date', 'Drawing Date':'date',
                            'Author':'author'}, inplace=True)
         if 'Size' in df.columns:  # New dwglog2 program will not deal with sheet sizes: A, B, C, D
             del df['Size']

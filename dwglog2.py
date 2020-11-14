@@ -340,8 +340,6 @@ class MainWindow(QMainWindow):
         try:
             self.conn = sqlite3.connect("dwglog2.db")
             self.c = self.conn.cursor()
-            tables = tables_in_sqlite_db(self.conn)
-            print(tables)
             s = set()
             for i in searchlist:
                 l = []                
@@ -355,15 +353,15 @@ class MainWindow(QMainWindow):
                     s = set(l)
                 else:
                     s = s & set(l) 
+            self.c.close()        
+            self.conn.close()        
+                    
             _list = list(s)
             _list = sorted(_list, reverse=True)
             srch = SearchResults(_list)
+            srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
             srch.exec_()
-                     
-            QMessageBox.information(QMessageBox(), 'Successful', searchresult)
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
+            #QMessageBox.information(QMessageBox(), 'Successful', "searchresult")
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')        
         
@@ -371,9 +369,15 @@ class MainWindow(QMainWindow):
 class SearchResults(QDialog):        
     def __init__(self, found, parent=None):
         self.found = found
+        lenfound = len(found)
         super(SearchResults, self).__init__(parent)
         self.setWindowTitle('Search Results')
-        self.setMinimumSize(850, 600)
+        #self.setMinimumSize(850, lenfound*75)      # 600)
+        self.setMinimumWidth(850)
+        if lenfound >= 16:
+            self.setMinimumHeight(600)
+        elif 16 > lenfound > 5:
+            self.setMinimumHeight(lenfound*37 + 40)
         self.r_max = len(self.found)
         self.c_max = len(self.found[0])
         self.values = {}
@@ -388,11 +392,13 @@ class SearchResults(QDialog):
         self.tableWidget.setColumnWidth(2, 335)
         self.tableWidget.setColumnWidth(3, 90)
         self.tableWidget.setColumnWidth(4, 30)
+        self.tableWidget.horizontalHeader().setStretchLastSection(True)
+        self.tableWidget.setAlternatingRowColors(True)
         layout = QVBoxLayout()
         layout.addWidget(self.tableWidget)
         self.setLayout(layout)
         self.refreshTable()
-        print('eeee')
+        print('eeeee')
         
     def refreshTable(self):             
         self.tableWidget.clear()
@@ -402,17 +408,14 @@ class SearchResults(QDialog):
                                             'Description', 'Date', 'Author'])
         for r in range(self.r_max):
             for c in range(self.c_max):
-                print('c=', c, self.found[r][c])
                 if c == 3:
-                    print('dddddddddd')
                     d = datetime.fromisoformat(self.found[r][c])
-                    print('333333')
                     item = QTableWidgetItem(d.strftime("%m/%d/%Y"))
                 else:
                     item = QTableWidgetItem(self.found[r][c])
-                print(item)
-                item.setTextAlignment(Qt.AlignRight|Qt.AlignVCenter)
+                item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
                 self.tableWidget.setItem(r, c, item)
+        print('ddddddd')
  
         
 def generate_nos(dwg_nos, partNo):
