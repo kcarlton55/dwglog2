@@ -81,7 +81,8 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS 
                         ptnos(dwg TEXT PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
-                        description TEXT, date TEXT NOT NULL, author TEXT)''')                        
+                        description TEXT, date TEXT NOT NULL, author TEXT)''') 
+        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_part ON ptnos (part)')
         df_dict = df.to_dict()        
         len_dict = len(df_dict['dwg'])
         

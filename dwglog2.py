@@ -181,6 +181,9 @@ class MainWindow(QMainWindow):
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
                         ptnos(dwg TEXT PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
                         description TEXT, date TEXT NOT NULL, author TEXT)''')
+        # https://stackoverflow.com/questions/42004505/sqlite-select-with-limit-performance
+        # https://www.sqlitetutorial.net/sqlite-index/
+        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_part ON ptnos (part)')
         self.c.close()
         
         file_menu = self.menuBar().addMenu('&File')
@@ -249,11 +252,10 @@ class MainWindow(QMainWindow):
 #-----------
         
         self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* and kcarlton)')
-        self.searchinput.setMaxLength(40)
-        self.searchinput.setToolTip('"and" must be lower case.  Dates to in format YYYY-MM-DD ' +
-                                    '(e.g. 2020-05-03).\n  Search is case sensitive. ' +
-                                    'Search implements "GLOB" characters (*, ?, [, ])')
+        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* | kcarlton)')
+        self.searchinput.setToolTip('| = intersection of search result sets. For searches, enter dates in \n' +
+                                    'format YYYY-MM-DD, e.g. 2020-05-03.  Search is case sensitive. \n' +
+                                    'Search recognizes "GLOB" characters (*, ?, [, ])')
         self.searchinput.returnPressed.connect(self.searchpart)
 
         toolbar.addWidget(self.searchinput)
@@ -291,7 +293,7 @@ class MainWindow(QMainWindow):
         self.connection = sqlite3.connect('dwglog2.db')
         query = ('''SELECT dwg, part, description, strftime("%m/%d/%Y", date), author 
                     FROM ptnos
-                    ORDER BY dwg DESC''')
+                    ORDER BY dwg DESC LIMIT 100''')
         result = self.connection.execute(query)
         self.tableWidget.setRowCount(0)
         for row_number, row_data in enumerate(result):
@@ -332,39 +334,28 @@ class MainWindow(QMainWindow):
         self.label.setText(self.lineedit.text())
           
     def searchpart(self):
-        #https://stackoverflow.com/questions/30732480/sqlite-where-clause-for-every-column
-        #searchrol = ""
-        # https://codeloop.org/pyqt5-creating-qlineedit-with-returnpressed-signal/
         searchterm = self.searchinput.text()
-        searchlist = searchterm.split(' and ')
+        searchlist = searchterm.split('|')
+        searchlist = [x.strip(' ') for x in searchlist]  # get rid of spaces around list items
         try:
             self.conn = sqlite3.connect("dwglog2.db")
             self.c = self.conn.cursor()
             s = set()
+            sqlSelect = 'SELECT dwg, part, description, date, author FROM ptnos WHERE '
             for i in searchlist:
-                l = []                
-                for j in ('dwg', 'part', 'description', 'date', 'author'):
-                    sqlSelect = ("SELECT * from ptnos WHERE " + j + 
-                                 " GLOB '" + str(i) + "'")
-                    result = self.c.execute(sqlSelect)            
-                    rows = result.fetchall()
-                    l = l + rows
-                if len(s) == 0:
-                    s = set(l)
-                else:
-                    s = s & set(l) 
+                sqlSelect = sqlSelect + '''(dwg GLOB '{0}' OR part GLOB '{0}' OR description GLOB '{0}'
+                                           OR date GLOB '{0}' OR author GLOB '{0}') AND '''.format(i)
+            sqlSelect = sqlSelect[:-5] + ' ORDER BY dwg DESC'
+            result = self.c.execute(sqlSelect)            
+            rows = result.fetchall()
             self.c.close()        
-            self.conn.close()        
-                    
-            _list = list(s)
-            _list = sorted(_list, reverse=True)
-            srch = SearchResults(_list)
+            self.conn.close()             
+            srch = SearchResults(rows)
             srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
             srch.exec_()
-            #QMessageBox.information(QMessageBox(), 'Successful', "searchresult")
         except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')        
-        
+            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')  
+
 
 class SearchResults(QDialog):        
     def __init__(self, found, parent=None):
@@ -398,7 +389,6 @@ class SearchResults(QDialog):
         layout.addWidget(self.tableWidget)
         self.setLayout(layout)
         self.refreshTable()
-        print('eeeee')
         
     def refreshTable(self):             
         self.tableWidget.clear()
@@ -415,7 +405,6 @@ class SearchResults(QDialog):
                     item = QTableWidgetItem(self.found[r][c])
                 item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
                 self.tableWidget.setItem(r, c, item)
-        print('ddddddd')
  
         
 def generate_nos(dwg_nos, partNo):
