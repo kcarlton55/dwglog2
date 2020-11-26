@@ -174,6 +174,8 @@ class AboutDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        
+        self.colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
         self.setWindowIcon(QIcon('icon/dwglog2.ico'))
         
         self.conn = sqlite3.connect('dwglog2.db')
@@ -182,9 +184,7 @@ class MainWindow(QMainWindow):
                         ptnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
                         description TEXT, date TEXT NOT NULL, author TEXT)''')
         # https://stackoverflow.com/questions/42004505/sqlite-select-with-limit-performance
-        # https://www.sqlitetutorial.net/sqlite-index/
-        #self.c.execute('CREATE INDEX IF NOT EXISTS idx_ptnos_part ON ptnos (part)')
-        #self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_dwg ON ptnos (dwg)')
+        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_dwg ON ptnos (dwg)')  
         self.c.close()
         
         file_menu = self.menuBar().addMenu('&File')
@@ -211,7 +211,8 @@ class MainWindow(QMainWindow):
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.verticalHeader().setVisible(False)
         
-        self.tableWidget.cellClicked.connect(self.cell_was_clicked)
+        self.tableWidget.cellDoubleClicked.connect(self.cell_was_doubleclicked)
+        self.tableWidget.cellChanged.connect(self.cell_was_changed)
 
         #self.tableWidget.verticalHeader().setStretchLastSection(False)
         #https://forum.qt.io/topic/3921/solved-qtablewidget-columns-with-different-width/4
@@ -295,6 +296,7 @@ class MainWindow(QMainWindow):
 # =============================================================================
         
     def loaddata(self):
+        self.loadingdata = True
         self.connection = sqlite3.connect('dwglog2.db')
         query = ('''SELECT dwg, part, description, strftime("%m/%d/%Y", date), author 
                     FROM ptnos
@@ -307,6 +309,7 @@ class MainWindow(QMainWindow):
                 item = QTableWidgetItem(str(data))
                 self.tableWidget.setItem(row_number, column_number, item)
         self.connection.close()
+        self.loadingdata = False
         
 # =============================================================================
 #     def handlePaintRequest(self, printer):
@@ -367,13 +370,57 @@ class MainWindow(QMainWindow):
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')  
             
-    def cell_was_clicked(self, row, column):
-            #print("Row %d and Column %d was clicked" % (row, column))
-            item = self.tableWidget.item(row, column)  # itemAt returned value at 0,0
-            self.ID = item.text()
-            cb = QApplication.clipboard()
-            cb.clear(mode=cb.Clipboard )
-            cb.setText(self.ID, mode=cb.Clipboard)
+    def cell_was_doubleclicked(self, row, column):
+        #print("Row %d and Column %d was clicked" % (row, column))
+        item = self.tableWidget.item(row, column)  # itemAt returned value at 0,0
+        self.ID = item.text()
+        cb = QApplication.clipboard()
+        cb.clear(mode=cb.Clipboard )
+        cb.setText(self.ID, mode=cb.Clipboard)
+            
+    def cell_was_changed(self, row, column):
+        if self.loadingdata == False:
+            item = self.tableWidget.item(row, column)
+            k = item.text().strip()
+            itemcol = self.tableWidget.item(row, 0)
+            kc = itemcol.text()
+            if column == 3 and k.count('/') == 2:  # date column
+                j = k.split('/')
+                if (all(i.isdigit() for i in j)
+                        and (1 <= int(j[0]) <= 12)
+                        and (1 <= int(j[1]) <= 31)
+                        and (1980 <= int(j[2]) <= 2099)):
+                    k = j[0].zfill(2)[-2:] + '/' + j[1].zfill(2)[-2:] + '/' + j[2]
+                else:
+                    k = 'abort'
+            elif column == 3:
+                k = 'abort'
+            elif column == 0 and k.isdigit():  # dwgno col
+                self.conn = sqlite3.connect('dwglog2.db')
+                self.c = self.conn.cursor()
+                self.c.execute("SELECT dwg FROM ptnos LIMIT 50")
+                result = self.c.fetchall()
+                dwgno, part = generate_nos(result, '')
+                if int(k) > dwgno + 20:
+                    k = 'abort'
+            elif column == 0:
+                k = 'abort'
+                
+            try:
+                self.conn = sqlite3.connect("dwglog2.db")
+                self.c = self.conn.cursor()
+                sqlUpdate = ('UPDATE ptnos SET ' + self.colnames[column] 
+                             + " = '" + k + "' WHERE dwg = " + kc)
+                print('aaa')
+                print(sqlUpdate)
+                result = self.c.execute(sqlUpdate)
+                self.conn.commit()
+                print('bbb')
+                self.c.close()        
+                self.conn.close() 
+                self.loaddata()
+            except Exception:
+                QMessageBox.warning(QMessageBox(), 'Error', 'Could not update field.')
 
 
 class SearchResults(QDialog):        
@@ -424,51 +471,6 @@ class SearchResults(QDialog):
                     item = QTableWidgetItem(str(self.found[r][c]))
                 item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
                 self.tableWidget.setItem(r, c, item)
- 
-        
-def generate_nos(dwg_nos, partNo):
-    '''
-    Generate a new drawing number and a new part no.
-
-    Parameters
-    ----------
-    dwg_nos: list
-        A list of tuples derived from the dwg column of the prtnos table of the
-        dwglog2.db sqlite database file.  The list has a form like:
-        [(2020048,), (2020049,), (2020050,)]
-            
-    partNo: str
-        Part no. given by the user.
-
-    Returns
-    -------
-    dwgNo: str
-        A new drawing no. to add to the dwglog2.db file, e.g. '2020051'
-    partNo: str
-        Same PartNo as input to this function unless autofill kicks in to
-        change nos. from, for example, '0300' to '0300-2020-051', or 
-        '6521' to '6521-2020-051'.
-    '''
-    year = date.today().year  # current year, e.g. 2020 (an int)
-    int_list = []
-    for x in dwg_nos:  # dwg_nos has a form like [(2020048,), (2020049,), (2020050,)]
-        if len(x[0])>6 and x[0].isnumeric() and year == int(x[0][:4]):
-            int_list.append(int(x[0][4:])) # e.g. 48, 49, and 50 from "2020048", "2020049", and "2020050"          
-    if int_list:
-        max_int = max(int_list)                # e.g. 50
-        dwg_prefix = str(max_int + 1)          # e.g. "51"
-        if len(dwg_prefix) > 3:
-            _len = -1 * len(dwg_prefix)
-        else:
-            _len = -3
-        dwg_prefix = dwg_prefix.zfill(10)[_len:]  # e.g. filled: "51" to "051"
-        dwgNo = str(year) + dwg_prefix         # e.g. a new dwg no.: "2020051"
-    else:
-        dwgNo = str(year) + '001'  # if no ints in list, then is 1st dwg no. for a new year
-    if ((partNo.isnumeric() and len(partNo) == 4) or
-           (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
-        partNo = partNo[:4] + '-' + str(year) + '-' + dwgNo[4:]  # e.g. "0300" to "0300-2020-051"
-    return dwgNo, partNo
 
 
 def generate_nos(dwg_nos, partNo):
@@ -487,8 +489,8 @@ def generate_nos(dwg_nos, partNo):
 
     Returns
     -------
-    dwgNo: str
-        A new drawing no. to add to the dwglog2.db file, e.g. '2020051'
+    dwgNo: int
+        A new drawing no. to add to the dwglog2.db file, e.g. 2020051
     partNo: str
         Same PartNo as input to this function unless autofill kicks in to
         change nos. from, for example, '0300' to '0300-2020-051', or 
