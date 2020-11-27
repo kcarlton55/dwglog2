@@ -26,7 +26,7 @@ def main():
                         'named dwglog2.db and import data from a csv or Excel file into it.  If the file ' +
                         'database file already exist, append data from a csv or Excel file to the ' +
                         "existing data.  The table within the database " +
-                        'file will be named "ptnos".  Column names are dwg, part, description, ' +
+                        'file will be named "dwgnos".  Column names are dwg, part, description, ' +
                         'date, and author.  Data types for all data will be text.  The ' +
                         'format of dates will be YYYY-MM-DD')
     parser.add_argument('file_in', help='Name of file Excel or csv file to import.')
@@ -80,9 +80,9 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
         conn = sqlite3.connect('dwglog2.db')
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS 
-                        ptnos(dwg INTERGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        dwgnos(dwg INTERGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
                         description TEXT, date TEXT NOT NULL, author TEXT)''') 
-        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_dwg ON ptnos (dwg)')                                 
+        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')                                 
         df_dict = df.to_dict()        
         len_dict = len(df_dict['dwg'])
         not_unique = []
@@ -92,9 +92,10 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
             description = str(df_dict['description'][i])
             date = df_dict['date'][i]
             author = str(df_dict['author'][i])
-            _date = date.strftime("%Y-%m-%d")
+            #_date = date.strftime("%Y-%m-%d")
+            _date = date.strftime("%m/%d/%Y")
             try:
-                c.execute("INSERT INTO ptnos (dwg, part, description, date, author) VALUES (?,?,?,?,?)",
+                c.execute("INSERT INTO dwgnos (dwg, part, description, date, author) VALUES (?,?,?,?,?)",
                                              (dwg, part, description, _date, author))
                 conn.commit()
                 print("{:9} {:32} {:42} {:12} {:14}".format(dwg, part, description, _date, author))  

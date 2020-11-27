@@ -65,16 +65,17 @@ class InsertDialog(QDialog):
         part = self.partinput.text().upper().strip()
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
-        _date = now.strftime("%Y-%m-%d %H:%M:%S")
+        #_date = now.strftime("%Y-%m-%d %H:%M:%S")
+        _date = now.strftime("%m/%d/%Y")
         
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg FROM ptnos LIMIT 50")
+            self.c.execute("SELECT dwg FROM dwgnos LIMIT 50")
             result = self.c.fetchall()
             dwgno, part = generate_nos(result, part)
-            self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
-                           (dwgno, part, description, _date,author))
+            self.c.execute("INSERT INTO dwgnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
+                           (dwgno, part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -82,8 +83,8 @@ class InsertDialog(QDialog):
         except TypeError:
             year = date.today().year
             dwgno, part  = year*1000, 'Invalid part no.'
-            self.c.execute("INSERT INTO ptnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
-                           (dwgno, part, description, _date,author))
+            self.c.execute("INSERT INTO dwgnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
+                           (dwgno, part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -124,7 +125,7 @@ class DeleteDialog(QDialog):
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute('DELETE from ptnos WHERE dwg = ' + str(deldwg))
+            self.c.execute('DELETE from dwgnos WHERE dwg = ' + str(deldwg))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -181,10 +182,10 @@ class MainWindow(QMainWindow):
         self.conn = sqlite3.connect('dwglog2.db')
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
-                        ptnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        dwgnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
                         description TEXT, date TEXT NOT NULL, author TEXT)''')
         # https://stackoverflow.com/questions/42004505/sqlite-select-with-limit-performance
-        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_ptnos_dwg ON ptnos (dwg)')  
+        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')  
         self.c.close()
         
         file_menu = self.menuBar().addMenu('&File')
@@ -211,7 +212,7 @@ class MainWindow(QMainWindow):
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.verticalHeader().setVisible(False)
         
-        self.tableWidget.cellDoubleClicked.connect(self.cell_was_doubleclicked)
+        self.tableWidget.cellClicked.connect(self.cell_was_clicked)
         self.tableWidget.cellChanged.connect(self.cell_was_changed)
 
         #self.tableWidget.verticalHeader().setStretchLastSection(False)
@@ -234,7 +235,7 @@ class MainWindow(QMainWindow):
         statusbar = QStatusBar()
         self.setStatusBar(statusbar)
         
-        btn_ac_addpart = QAction(QIcon('icon/add2.png'), 'AddPart', self)  # add part icon
+        btn_ac_addpart = QAction(QIcon('icon/add_record.png'), 'AddPart', self)  # add part icon
         btn_ac_addpart.triggered.connect(self.insert)
         btn_ac_addpart.setStatusTip('Add Part')
         toolbar.addAction(btn_ac_addpart)
@@ -244,7 +245,7 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
        
-        btn_ac_delete = QAction(QIcon('icon/d1.png'), 'Delete', self)
+        btn_ac_delete = QAction(QIcon('icon/trash.png'), 'Delete', self)
         btn_ac_delete.triggered.connect(self.delete)
         btn_ac_delete.setStatusTip('Delete Part')
         toolbar.addAction(btn_ac_delete)
@@ -256,10 +257,9 @@ class MainWindow(QMainWindow):
 #-----------
         
         self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* | kcarlton)')
-        self.searchinput.setToolTip('| = intersection of search result sets. For searches, enter dates in \n' +
-                                    'format YYYY-MM-DD, e.g. 2020-05-03.  Search is case sensitive. \n' +
-                                    'Search recognizes "GLOB" characters (*, ?, [, ])')
+        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* ; kcarlton)')
+        self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
+                                    'GLOB characters *, ?, [, ], and ^ can be used for searching')
         self.searchinput.returnPressed.connect(self.searchpart)
 
         toolbar.addWidget(self.searchinput)
@@ -269,7 +269,7 @@ class MainWindow(QMainWindow):
     
 #-----------        
         
-        addpart_action = QAction(QIcon('icon/add2.png'), 'Insert Part', self)
+        addpart_action = QAction(QIcon('icon/add_record.png'), 'Insert Part', self)
         addpart_action.triggered.connect(self.insert)
         file_menu.addAction(addpart_action)
         
@@ -277,7 +277,7 @@ class MainWindow(QMainWindow):
         searchpart_action.triggered.connect(self.search)
         file_menu.addAction(searchpart_action)
         
-        delpart_action = QAction(QIcon('icon/d1.png'), 'Delete Part', self)
+        delpart_action = QAction(QIcon('icon/trash.png'), 'Delete Part', self)
         delpart_action.triggered.connect(self.delete)
         file_menu.addAction(delpart_action)
         
@@ -298,8 +298,8 @@ class MainWindow(QMainWindow):
     def loaddata(self):
         self.loadingdata = True
         self.connection = sqlite3.connect('dwglog2.db')
-        query = ('''SELECT dwg, part, description, strftime("%m/%d/%Y", date), author 
-                    FROM ptnos
+        query = ('''SELECT dwg, part, description, date, author 
+                    FROM dwgnos
                     ORDER BY dwg DESC LIMIT 100''')
         result = self.connection.execute(query)
         self.tableWidget.setRowCount(0)
@@ -348,13 +348,13 @@ class MainWindow(QMainWindow):
           
     def searchpart(self):
         searchterm = self.searchinput.text()
-        searchlist = searchterm.split('|')
+        searchlist = searchterm.split(';')
         searchlist = [x.strip(' ') for x in searchlist]  # get rid of spaces around list items
         try:
             self.conn = sqlite3.connect("dwglog2.db")
             self.c = self.conn.cursor()
             s = set()
-            sqlSelect = 'SELECT dwg, part, description, date, author FROM ptnos WHERE '
+            sqlSelect = 'SELECT dwg, part, description, date, author FROM dwgnos WHERE '
             for i in searchlist:
                 sqlSelect = sqlSelect + '''(part GLOB '{0}' OR description GLOB '{0}'
                                             OR author GLOB '{0}' OR dwg GLOB '{0}'
@@ -364,20 +364,16 @@ class MainWindow(QMainWindow):
             rows = result.fetchall()
             self.c.close()        
             self.conn.close()             
-            srch = SearchResults(rows)
+            srch = SearchResults(rows, searchterm)
             srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
             srch.exec_()
         except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')  
+            QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
             
-    def cell_was_doubleclicked(self, row, column):
-        #print("Row %d and Column %d was clicked" % (row, column))
-        item = self.tableWidget.item(row, column)  # itemAt returned value at 0,0
-        self.ID = item.text()
-        cb = QApplication.clipboard()
-        cb.clear(mode=cb.Clipboard )
-        cb.setText(self.ID, mode=cb.Clipboard)
-            
+    def cell_was_clicked(self, row, column):
+        item = self.tableWidget.item(row, column)
+        self.clicked_cell_text = item.text().strip()
+        
     def cell_was_changed(self, row, column):
         if self.loadingdata == False:
             item = self.tableWidget.item(row, column)
@@ -389,46 +385,58 @@ class MainWindow(QMainWindow):
                 if (all(i.isdigit() for i in j)
                         and (1 <= int(j[0]) <= 12)
                         and (1 <= int(j[1]) <= 31)
-                        and (1980 <= int(j[2]) <= 2099)):
-                    k = j[0].zfill(2)[-2:] + '/' + j[1].zfill(2)[-2:] + '/' + j[2]
+                        and (1998 <= int(j[2]) <= 2099)):
+                    k = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
                 else:
-                    k = 'abort'
+                    k = 'abort3'
             elif column == 3:
-                k = 'abort'
+                k = 'abort3'
             elif column == 0 and k.isdigit():  # dwgno col
                 self.conn = sqlite3.connect('dwglog2.db')
                 self.c = self.conn.cursor()
-                self.c.execute("SELECT dwg FROM ptnos LIMIT 50")
+                self.c.execute("SELECT dwg FROM dwgnos LIMIT 50")
                 result = self.c.fetchall()
                 dwgno, part = generate_nos(result, '')
-                if int(k) > dwgno + 20:
-                    k = 'abort'
+                if (int(k) > dwgno + 20) or (int(k) < 2009193):
+                    k = 'abort0'
             elif column == 0:
-                k = 'abort'
-                
+                k = 'abort0'    
             try:
+                if k == 'abort3':
+                    raise  Exception('improper date format')
+                elif k == 'abort0':
+                    raise  Exception('improper dwg. no. format')
                 self.conn = sqlite3.connect("dwglog2.db")
                 self.c = self.conn.cursor()
-                sqlUpdate = ('UPDATE ptnos SET ' + self.colnames[column] 
-                             + " = '" + k + "' WHERE dwg = " + kc)
-                print('aaa')
+                if column == 0:
+                    sqlUpdate = ('UPDATE dwgnos SET ' + self.colnames[column] 
+                                 + " = " + k + " WHERE dwg = " + self.clicked_cell_text)
+                else:
+                    sqlUpdate = ('UPDATE dwgnos SET ' + self.colnames[column] 
+                                 + " = '" + k + "' WHERE dwg = " + kc)
                 print(sqlUpdate)
                 result = self.c.execute(sqlUpdate)
                 self.conn.commit()
-                print('bbb')
                 self.c.close()        
                 self.conn.close() 
-                self.loaddata()
-            except Exception:
-                QMessageBox.warning(QMessageBox(), 'Error', 'Could not update field.')
+            except sqlite3.Error as er:
+                errmsg = 'SQLite error: %s' % (' '.join(er.args))
+                QMessageBox.warning(QMessageBox(), 'Error', errmsg)
+            except Exception as er:
+                if er.args:
+                    print(er.args, type(er.args))
+                    QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
+                else:
+                    QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')
+            self.loaddata()
 
 
 class SearchResults(QDialog):        
-    def __init__(self, found, parent=None):
+    def __init__(self, found, searchterm, parent=None):
         super(SearchResults, self).__init__(parent)
         self.found = found
         lenfound = len(found)
-        self.setWindowTitle('Search Results')
+        self.setWindowTitle('Search Results: ' + searchterm)
         #self.setMinimumSize(850, lenfound*75)      # 600)
         self.setMinimumWidth(850)
         if lenfound >= 16:
@@ -464,11 +472,7 @@ class SearchResults(QDialog):
                                             'Description', 'Date', 'Author'])
         for r in range(self.r_max):
             for c in range(self.c_max):
-                if c == 3:
-                    d = datetime.fromisoformat(self.found[r][c])
-                    item = QTableWidgetItem(d.strftime("%m/%d/%Y"))
-                else:
-                    item = QTableWidgetItem(str(self.found[r][c]))
+                item = QTableWidgetItem(str(self.found[r][c]))
                 item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
                 self.tableWidget.setItem(r, c, item)
 
