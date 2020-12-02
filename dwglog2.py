@@ -607,7 +607,7 @@ def cell_changed(k, clicked_text, column):
             k['changed'] = 'abort3'
     elif column == 3:
         k['changed'] = 'abort3'
-    elif column == 0 and k['changed'].lower() in ('delete', 'remove', 'trash'):
+    elif column == 0 and k['changed'].lower() in ('delete', 'remove', 'trash', 'erase', 'cut', 'axe'):
         k['changed'] = 'delete'
     elif column == 0 and  k['changed'].isdigit():  # dwgno col
         conn = sqlite3.connect('dwglog2.db')
@@ -621,32 +621,48 @@ def cell_changed(k, clicked_text, column):
         k['changed'] = 'abort0'  
     elif column == 4:
         k['changed'] = k['changed'].lower()
+        
     try:
         if k['changed'] == 'abort3':
             raise  Exception('improper date format')
         elif k['changed'] == 'abort0':
             raise  Exception('improper dwg. no.')
-        conn = sqlite3.connect("dwglog2.db")
-        c = conn.cursor()
-        if column == 0 and k['changed'] == 'delete':
-            sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
-        elif column == 0:
-            sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                         + " = " + k + " WHERE dwg = " + clicked_text)
+            
+        # set up message box for user to verify update
+        msgbox = QMessageBox()
+        msgbox.setIcon(QMessageBox.Warning)
+        if k['changed'] == 'delete':
+            msgbox.setWindowTitle('Delete?')
+            msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
+                    + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
+            msgbox.setText(msg)
         else:
-            sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                         + " = '" + k['changed'] + "' WHERE dwg = " + k[0])
-        result = c.execute(sqlUpdate)
-        conn.commit()
-        c.close()        
-        conn.close() 
-        if column == 0 and k['changed'] == 'delete':
-            QMessageBox.warning(QMessageBox(), 'Record deleted',
-                'Deleted:\n    ' + clicked_text + '\n    ' + k[1] + '\n    ' + k[2] 
-                + '\n    ' + k[3] + '\n    ' + k[4])
-        else:    
-            QMessageBox.warning(QMessageBox(), 'Field updated', 'from: ' + 
-                            clicked_text + '\nto:     ' + k['changed'] )
+            msgbox.setWindowTitle('Update?')
+            msg = ('from: ' +  clicked_text + '\nto:     ' + k['changed'])
+            msgbox.setText(msg)
+        msgbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        retval = msgbox.exec_()
+        if retval == QMessageBox.Cancel:
+            userresponse = False
+        elif retval == QMessageBox.Ok:
+            userresponse = True
+              
+        if userresponse == True:    
+            conn = sqlite3.connect("dwglog2.db")
+            c = conn.cursor()
+            if column == 0 and k['changed'] == 'delete':
+                sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
+            elif column == 0:
+                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
+                             + " = " + k + " WHERE dwg = " + clicked_text)
+            else:
+                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
+                             + " = '" + k['changed'] + "' WHERE dwg = " + k[0])
+            result = c.execute(sqlUpdate)
+            conn.commit()
+            c.close()        
+            conn.close() 
+        
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         QMessageBox.warning(QMessageBox(), 'Error', errmsg)
@@ -654,7 +670,21 @@ def cell_changed(k, clicked_text, column):
         if er.args:
             QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
         else:
-            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')
+            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')            
+            
+            
+            
+def verifyQMessageBox(msg):
+    verify = QMessageBox()
+    verify.setIcon(QMessageBox.Warning)
+    verify.setText(msg)
+    verify.setWindowTitle('Verify')
+    verify.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+    verify.buttonClicked.connect(verifyUserResponse)
+    verify._exec()
+    
+def userResponse(i):
+    print("Button pressed is:",i.text())
     
         
 app = QApplication(sys.argv)
