@@ -9,7 +9,9 @@ https://www.youtube.com/watch?v=kKNINH-Nf8w&t=7s
 """
 
 
+
 from PyQt5.QtCore import *
+from PyQt5.QtCore import QEvent
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -184,34 +186,33 @@ class HelpDialog(QDialog):
         self.setWindowTitle('Help')
         
         helpinfo = ('Add a new record:\n\n'
-                     + '  Press the button that has the plus sign on it.  Enter the part no. and description.\n'
-                     + '  Other record fields (dwg no., date, author) will be automatically filled in.  If\n'
-                     + '  only the first four digits of a part no. are entered, then the remainder of the\n'
-                     + '  part no. will be filled in automatically.  That is 0300 -> 0300-2020-401\n\n'
+                     + '    Press the button that has the plus sign on it.  Enter the part no. and description.\n'
+                     + '    Other record fields (dwg no., date, author) will be automatically filled in.  If\n'
+                     + '    only the first four digits of a part no. are entered, then the remainder of the\n'
+                     + '    part no. will be filled in automatically.  That is 0300 -> 0300-2020-401\n\n'
                      + 'Search examples:\n\n'
-                     + '  query:  *BRACKET*\n'
-                     + '  finds:    2020805, 2728-2020-805, BRACKET AIRJET SUPPORT, 11/03/2020, sthomas\n'
-                     + '               2020803, 2728-2020-803, BRACKET PUMP PIPING SUPPORT, 11/03/2020, sthomas\n'         
-                     + '               ...\n\n'
-                     + '  query:  VMX0036?A1-00*    (note the use of the quesion mark, ?)\n'
-                     + '  finds:    2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
-                     + '               2020804, 093859, VMX0036KA1-00 575V TEFC, 11/04/2020, kcarlton\n'
-                     + '               ...\n\n'
-                     + '  query:  09* ; 0[345]/*/2020 ; kcarlton\n'
-                     + '  finds:    2020811, 093902, VMX0103KA1-00 460V TEFC, 03/25/2020, kcarlton\n'
-                     + '               2020804, 093859, RVL212HH-14 W/OPTIONS 380V/50/3, 05/03/2020, kcarlton\n'
-                     + '               ...\n'
-                     + '  That is, finds production units of March, April, and May of 2020 by kcarlton.  The ;\n'
-                     + '  character finds the intersection of search results for 09*, 0[345]/*/2020, and kcarlton\n\n'
-                     + '  Note that searches are case sensitive.  For more inforation about searching, see:\n'
-                     + '  https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
+                     + '    query:  VMX0036?A1-00*    (note the use of the quesion mark, ?)\n'
+                     + '    finds:    2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
+                     + '                 2020804, 093859, VMX0036KA1-00 575V TEFC, 11/04/2020, kcarlton\n'
+                     + '                 ...\n\n'
+                     + '    query:  09* ; 0[345]/*/2020 ; kcarlton\n'
+                     + '    finds:    2020811, 093902, VMX0103KA1-00 460V TEFC, 03/25/2020, kcarlton\n'
+                     + '                 2020804, 093859, RVL212HH-14 W/OPTIONS 380V/50/3, 05/03/2020, kcarlton\n'
+                     + '                 ...\n'
+                     + '    That is, finds production units of March, April, and May of 2020 by kcarlton.  The ;\n'
+                     + '    character finds the intersection of search results for 09*, 0[345]/*/2020, and kcarlton\n\n'
+                     + '    Note that searches are case sensitive.  For more inforation about searching, see:\n'
+                     + '    https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
                      + 'Update a field:\n\n'
-                     + '  Change the data in a cell of the table and then press the Enter key.\n\n'
+                     + '    To update a field (a table cell), change the text in the cell and then press the Enter key.\n\n'
+                     + 'Delete a record:\n\n'
+                     + '    To delete a data record (a table row), enter one of the following words into the cell\n'
+                     + '    that contains the drawing number: delete, remove, trash.  Then press Enter.\n\n'
                      + 'Refresh the table:\n\n'
-                     + '  While you are working on the dwglog2 program, other users simultaneously have access to\n'
-                     + '  the same data shown to you.  You may wish to push the refresh button to see changes\n'
-                     + '  other users have made while you have been working with the program.  Also, if you wish\n'
-                     + '  to see that your data has been updated successfully, push the refresh button.'
+                     + '    While you are working on the dwglog2 program, other users simultaneously have access to\n'
+                     + '    the same data shown to you.  You may wish to push the refresh button to see changes\n'
+                     + '    other users have made while you have been working with the program.  Also, if you wish\n'
+                     + '    to see that your data has been updated successfully, push the refresh button.\n\n'
                      )            
         
         layout.addWidget(QLabel(helpinfo))
@@ -225,6 +226,7 @@ class HelpDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        self.installEventFilter(self)
         
         self.setWindowIcon(QIcon('icon/dwglog2.ico'))
         
@@ -294,11 +296,13 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
        
-        btn_ac_delete = QAction(QIcon('icon/trash.png'), 'Delete', self) 
-        #btn_ac_delete.triggered.connect(self.delete)
-        btn_ac_delete.triggered.connect(self.deletedialog)
-        btn_ac_delete.setStatusTip('Delete a record')
-        toolbar.addAction(btn_ac_delete)
+# =============================================================================
+#         btn_ac_delete = QAction(QIcon('icon/trash.png'), 'Delete', self) 
+#         #btn_ac_delete.triggered.connect(self.delete)
+#         btn_ac_delete.triggered.connect(self.deletedialog)
+#         btn_ac_delete.setStatusTip('Delete a record')
+#         toolbar.addAction(btn_ac_delete)
+# =============================================================================
         
         empty_label = QLabel()
         empty_label.setText('         ')
@@ -319,9 +323,15 @@ class MainWindow(QMainWindow):
     
 #-----------        
         
-        addpart_action = QAction(QIcon('icon/add_record.png'), 'Add Record', self)
+        addpart_action = QAction(QIcon('icon/add_record.png'), '&Add Record', self)
         addpart_action.triggered.connect(self.insert)
         file_menu.addAction(addpart_action)
+        
+        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
+        addrefresh_action.setShortcut(QKeySequence.Refresh)
+        addrefresh_action.triggered.connect(self.loaddata)
+        file_menu.addAction(addrefresh_action)
+
         
 # =============================================================================
 #         searchpart_action = QAction(QIcon('icon/s1.png'), 'Search Records', self)
@@ -335,15 +345,17 @@ class MainWindow(QMainWindow):
 #         file_menu.addAction(delpart_action)
 # =============================================================================
         
-        quit_action = QAction(QIcon('icon/quit.png'), 'Quit', self)
+        quit_action = QAction(QIcon('icon/quit.png'), '&Quit', self)
+        quit_action.setShortcut(QKeySequence.Quit)
         quit_action.triggered.connect(self._close)
         file_menu.addAction(quit_action)
         
-        help_action = QAction(QIcon('icon/question-mark.png'), 'Help', self) 
+        help_action = QAction(QIcon('icon/question-mark.png'), '&Help', self) 
+        help_action.setShortcut(QKeySequence.HelpContents)
         help_action.triggered.connect(self._help)
         help_menu.addAction(help_action)
         
-        about_action = QAction(QIcon('icon/i1.png'), 'About', self) 
+        about_action = QAction(QIcon('icon/i1.png'), '&About', self) 
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
         
@@ -450,12 +462,17 @@ class MainWindow(QMainWindow):
                 k[n] = itemcol.text()
             clicked_text = self.clicked_cell_text
             cell_changed(k, clicked_text, column)
-            self.loaddata()         
-
-
+            self.loaddata()
+            
+                
 class SearchResults(QDialog):        
     def __init__(self, found, searchterm, parent=None):
         super(SearchResults, self).__init__(parent)
+        
+        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
+        addrefresh_action.setShortcut(QKeySequence.Refresh)
+        addrefresh_action.triggered.connect(self.loaddata)
+        
         self.found = found
         self.searchterm = searchterm
         lenfound = len(found)
@@ -522,8 +539,8 @@ class SearchResults(QDialog):
             clicked_text = self.clicked_cell_text
             cell_changed(k, clicked_text, column)
             self.searchpart()
-            self.loaddata()  
-
+            self.loaddata()
+            
 
 def generate_nos(dwg_nos, partNo):
     '''
@@ -588,6 +605,44 @@ def search(searchterm, caller_is_SearchResults=False):
         srch.exec_()
     except Exception:
         QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
+
+
+def search(searchterm, caller_is_SearchResults=False):
+    sqlSelect = 'SELECT dwg, part, description, date, author FROM dwgnos WHERE ('
+    searchlistparent = searchterm.split('also')
+    searchlistparent = [x.strip() for x in searchlistparent]  # get rid of spaces in list items
+    for searchtermchild in searchlistparent:
+        searchlistchild = searchtermchild.split(';')
+        searchlistchild = [x.strip() for x in searchlistchild]
+        for i in searchlistchild:
+            sqlSelect +=  '''(part GLOB '{0}' OR description GLOB '{0}'
+                              OR author GLOB '{0}' OR dwg GLOB '{0}'
+                              OR date GLOB '{0}') AND '''.format(i)
+        sqlSelect = sqlSelect[:-5] + ') OR ('   
+    sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg DESC'        
+    try:
+        conn = sqlite3.connect("dwglog2.db")
+        c = conn.cursor()
+        result = c.execute(sqlSelect)            
+        rows = result.fetchall()
+        c.close()        
+        conn.close()
+        if caller_is_SearchResults:
+            return rows            
+        srch = SearchResults(rows, searchterm)
+        srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
+        srch.exec_()
+    except Exception:
+        QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
+
+
+
+
+
+
+
+
+
         
  
 def cell_changed(k, clicked_text, column):
@@ -607,7 +662,8 @@ def cell_changed(k, clicked_text, column):
             k['changed'] = 'abort3'
     elif column == 3:
         k['changed'] = 'abort3'
-    elif column == 0 and k['changed'].lower() in ('delete', 'remove', 'trash', 'erase', 'cut', 'axe'):
+    elif column == 0 and k['changed'].lower() in ('delete', 'remove', 'trash', 'cut',
+                                                  'erase', 'void', 'null', 'clear'):
         k['changed'] = 'delete'
     elif column == 0 and  k['changed'].isdigit():  # dwgno col
         conn = sqlite3.connect('dwglog2.db')
