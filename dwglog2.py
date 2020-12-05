@@ -1,14 +1,15 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jul  6 21:49:28 2020
 
-@author: ken
+@author: Kenneth E. Carlton
 
-https://www.youtube.com/watch?v=kKNINH-Nf8w&t=7s
+Written for Dekker Vaccuum Technologies, Inc.  Manages and minipulates data
+in a sqlite database file.  This database file contains drawing numbers with 
+associated part numbers, part discriptions, drawing dates, and drawing authors.
 """
-
-
 
 from PyQt5.QtCore import *
 from PyQt5.QtCore import QEvent
@@ -25,9 +26,185 @@ __version__ = '0.1'
 __author__ = 'Kenneth E. Carlton'
 
 
-class InsertDialog(QDialog):
+class MainWindow(QMainWindow):
+    ''' Shows a table of data derived from the dwglog2.db database.  Menu items
+    allow for the manipulation of this data.
+    '''
     def __init__(self, *args, **kwargs):
-        super(InsertDialog, self).__init__(*args, **kwargs)
+        super(MainWindow, self).__init__(*args, **kwargs)
+        
+        self.setWindowIcon(QIcon('icon/dwglog2.ico'))
+        
+        self.conn = sqlite3.connect('dwglog2.db')
+        self.c = self.conn.cursor()
+        self.c.execute('''CREATE TABLE IF NOT EXISTS 
+                        dwgnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        description TEXT, date TEXT NOT NULL, author TEXT)''')
+        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')  
+        self.c.close()
+        
+        file_menu = self.menuBar().addMenu('&File')
+        help_menu = self.menuBar().addMenu('&Help')
+        self.setWindowTitle('Dekker Drawing Log 2')
+        self.setMinimumSize(850, 600)
+        
+        self.tableWidget = QTableWidget()
+        self.setCentralWidget(self.tableWidget)
+        self.tableWidget.setAlternatingRowColors(True)
+        self.tableWidget.setColumnCount(5)
+        
+        self.tableWidget.setColumnWidth(0, 80)
+        self.tableWidget.setColumnWidth(1, 250)
+        self.tableWidget.setColumnWidth(2, 335)
+        self.tableWidget.setColumnWidth(3, 90)
+        self.tableWidget.setColumnWidth(4, 30)
+        
+        self.tableWidget.horizontalHeader().setStretchLastSection(True)
+        self.tableWidget.verticalHeader().setVisible(False)
+        self.tableWidget.setHorizontalHeaderLabels(('Dwg No.', 'Part No.',
+                                            'Description', 'Date', 'Author'))
+        
+        self.tableWidget.cellClicked.connect(self.cell_was_clicked)
+        self.tableWidget.cellChanged.connect(self.cell_was_changed)
+
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+        
+        statusbar = QStatusBar()
+        self.setStatusBar(statusbar)
+        
+        btn_ac_addpart = QAction(QIcon('icon/add_record.png'), 'Add Record', self)  # add part icon
+        btn_ac_addpart.triggered.connect(self.insert)
+        btn_ac_addpart.setStatusTip('Add a Record')
+        toolbar.addAction(btn_ac_addpart)
+        
+        btn_ac_refresh = QAction(QIcon('icon/r3.png'), 'Refresh', self)  # refresh icon
+        btn_ac_refresh.triggered.connect(self.loaddata)
+        btn_ac_refresh.setStatusTip('Refresh Table')
+        toolbar.addAction(btn_ac_refresh)
+       
+        empty_label = QLabel()
+        empty_label.setText('         ')
+        toolbar.addWidget(empty_label)
+        
+        self.searchinput = QLineEdit()
+        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE*; kcarlton)')
+        self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
+                                    'GLOB characters *, ?, [, ], and ^ can be used for searching')
+        self.searchinput.returnPressed.connect(self.searchpart)
+        toolbar.addWidget(self.searchinput)
+            
+        addpart_action = QAction(QIcon('icon/add_record.png'), '&Add Record', self)
+        addpart_action.triggered.connect(self.insert)
+        file_menu.addAction(addpart_action)
+        
+        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
+        addrefresh_action.setShortcut(QKeySequence.Refresh)
+        addrefresh_action.triggered.connect(self.loaddata)
+        file_menu.addAction(addrefresh_action)
+        
+        quit_action = QAction(QIcon('icon/quit.png'), '&Quit', self)
+        quit_action.setShortcut(QKeySequence.Quit)
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+        
+        help_action = QAction(QIcon('icon/question-mark.png'), '&Help', self) 
+        help_action.setShortcut(QKeySequence.HelpContents)
+        help_action.triggered.connect(self._help)
+        help_menu.addAction(help_action)
+        
+        about_action = QAction(QIcon('icon/i1.png'), '&About', self) 
+        about_action.triggered.connect(self.about)
+        help_menu.addAction(about_action)
+        
+    def loaddata(self):
+        self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        query = ('''SELECT dwg, part, description, date, author 
+                    FROM dwgnos
+                    ORDER BY dwg DESC LIMIT 100''')
+        result = c.execute(query)
+        self.tableWidget.setRowCount(0)
+        for row_number, row_data in enumerate(result):
+            self.tableWidget.insertRow(row_number)
+            for column_number, data in enumerate(row_data):
+                item = QTableWidgetItem(str(data))
+                self.tableWidget.setItem(row_number, column_number, item)
+        c.close()        
+        conn.close()
+        self.loadingdata = False
+                
+    def insert(self):
+        dlg = AddDialog()  # call up the dialog box to add a new record.
+        dlg.exec_()
+        self.loaddata()   # automatically reload latest database data
+                
+    def about(self):
+        dlg = AboutDialog()
+        dlg.exec_()
+        
+    def _help(self):
+        dlg = HelpDialog()
+        dlg.exec_()
+                  
+    def searchpart(self):
+        searchterm = self.searchinput.text()
+        search(searchterm)
+             
+    def cell_was_clicked(self, row, column):
+        ''' When a user clicks on a table cell, record the text from that cell
+        before the user changes the contents.
+        '''
+        item = self.tableWidget.item(row, column)
+        self.clicked_cell_text = item.text().strip()
+                            
+    def cell_was_changed(self,row,column):
+        if self.loadingdata == False:
+            k = {}
+            for n in range(5):
+                itemcol = self.tableWidget.item(row, n)
+                k[n] = itemcol.text()
+            clicked_text = self.clicked_cell_text  # text previously in the cell
+            cell_changed(k, clicked_text, column)  # update database with new data
+            self.loaddata()  # automatically reload latest database data
+            
+            
+class AboutDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        super(AboutDialog, self).__init__(*args, **kwargs)
+        
+        self.setFixedHeight(250)
+        
+        QBtn = QDialogButtonBox.Ok
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        
+        layout = QVBoxLayout()
+        
+        self.setWindowTitle('About')
+        
+        labelpic = QLabel()
+        pixmap = QPixmap('icon/dekkerlogo.png')
+        pixmap = pixmap.scaledToWidth(275)
+        labelpic.setPixmap(pixmap)
+        labelpic.setFixedHeight(150)
+    
+        layout.addWidget(labelpic)
+        layout.addWidget(QLabel('program name: dwglog2, version: ' + __version__ + '\n'
+                                + 'Written by: Ken Carlton, December 1, 2020'))
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+        
+        
+class AddDialog(QDialog):
+    ''' A dialog box allowing a user to add a new record (dwg no., pt. no., etc.)
+    to the database.
+    '''
+    def __init__(self, *args, **kwargs):
+        super(AddDialog, self).__init__(*args, **kwargs)
            
         self.setWindowTitle('Insert Part Data')
         self.setFixedWidth(350)
@@ -67,13 +244,12 @@ class InsertDialog(QDialog):
         part = self.partinput.text().upper().strip()
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
-        #_date = now.strftime("%Y-%m-%d %H:%M:%S")
         _date = now.strftime("%m/%d/%Y")
         
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg FROM dwgnos LIMIT 50")
+            self.c.execute("SELECT dwg FROM dwgnos ORDER BY dwg DESC LIMIT 50")
             result = self.c.fetchall()
             dwgno, part = generate_nos(result, part)
             self.c.execute("INSERT INTO dwgnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
@@ -96,85 +272,17 @@ class InsertDialog(QDialog):
                           'file (dwglog2.db) having just been created?  Edit the new drawing number that '
                           'is about to be created to adjust the start point.  Make it something like 2020305 '
                           '(7 or 8 characters, all digits, the first 4 digits are the current year).')
+        except sqlite3.Error as er:
+            errmsg = 'SQLite error: %s' % (' '.join(er.args))
+            QMessageBox.warning(QMessageBox(), 'Error', errmsg)
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
-            
-
-class DeleteDialog(QDialog):
-    def __init__(self, *args, **kwargs):
-        super(DeleteDialog, self).__init__(*args, **kwargs)
-        
-        self.QBtn = QPushButton()
-        self.QBtn.setText("Delete")
-        
-        self.setWindowTitle("Delete a Record")
-        self.setFixedWidth(300)
-        self.setFixedHeight(100)
-        self.QBtn.clicked.connect(self.deletepart)
-        layout = QVBoxLayout()
-        
-        self.deleteinput = QLineEdit()
-        self.onlyInt = QIntValidator()
-        self.deleteinput.setValidator(self.onlyInt)
-        self.deleteinput.setPlaceholderText('Dwg No.')
-        layout.addWidget(self.deleteinput)
-        layout.addWidget(self.QBtn)
-        self.setLayout(layout)
-        
-    def deletepart(self):
-        deldwg = ""
-        deldwg = self.deleteinput.text()
-        try:
-            self.conn = sqlite3.connect('dwglog2.db')
-            self.c = self.conn.cursor()
-            self.c.execute('DELETE from dwgnos WHERE dwg = ' + str(deldwg))
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
-            QMessageBox.information(QMessageBox(), 'Successful', 'Deleted From Table Successful')
-            self.close()
-        except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not Delete ptno from the database.')
-            
-            
-class AboutDialog(QDialog):
-    def __init__(self, *args, **kwargs):
-        super(AboutDialog, self).__init__(*args, **kwargs)
-        
-        #self.setFixedWidth(500)
-        self.setFixedHeight(250)
-        
-        QBtn = QDialogButtonBox.Ok
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        
-        layout = QVBoxLayout()
-        
-        self.setWindowTitle('About')
-        
-        labelpic = QLabel()
-        pixmap = QPixmap('icon/dekkerlogo.png')
-        pixmap = pixmap.scaledToWidth(275)
-        labelpic.setPixmap(pixmap)
-        labelpic.setFixedHeight(150)
-    
-        layout.addWidget(labelpic)
-        layout.addWidget(QLabel('program name: dwglog2, version: ' + __version__ + '\n'
-                                + 'Written by: Ken Carlton, December 1, 2020'))
-        
-        layout.addWidget(self.buttonBox)
-        
-        
-        self.setLayout(layout)
         
         
 class HelpDialog(QDialog):
+    ''' Show help info '''
     def __init__(self, *args, **kwargs):
         super(HelpDialog, self).__init__(*args, **kwargs)
-        
-        #self.setFixedWidth(500)
-        #self.setFixedHeight(500)
         
         QBtn = QDialogButtonBox.Ok
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -182,7 +290,6 @@ class HelpDialog(QDialog):
         self.buttonBox.rejected.connect(self.reject)
         
         layout = QVBoxLayout()
-        
         self.setWindowTitle('Help')
         
         helpinfo = ('Add a new record:\n\n'
@@ -208,7 +315,7 @@ class HelpDialog(QDialog):
                      + '                 ...\n'
                      + '        Yields results for any or all of "09*; kcar*; 11/*/2020" or "rcol*; 11/*/2020 or 09*"\n'
                      + '        or "09*; who*; 11/*/2020".  The word "or" must be in lower case letters.\n\n'
-                     + '    Note that searches are case sensitive.  For more inforation about searching, see:\n'
+                     + '    Note that searches are case sensitive.  For more information about searching, see:\n'
                      + '    https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
                      + 'Update a field:\n\n'
                      + '    To update a field (a table cell), change the text in the cell and then press the Enter key.\n\n'
@@ -223,256 +330,16 @@ class HelpDialog(QDialog):
                      )            
         
         layout.addWidget(QLabel(helpinfo))
-        
         layout.addWidget(self.buttonBox)
-        
-        
         self.setLayout(layout)
         
         
-class MainWindow(QMainWindow):
-    def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
-        self.installEventFilter(self)
-        
-        self.setWindowIcon(QIcon('icon/dwglog2.ico'))
-        
-        self.conn = sqlite3.connect('dwglog2.db')
-        self.c = self.conn.cursor()
-        self.c.execute('''CREATE TABLE IF NOT EXISTS 
-                        dwgnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
-                        description TEXT, date TEXT NOT NULL, author TEXT)''')
-        # https://stackoverflow.com/questions/42004505/sqlite-select-with-limit-performance
-        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')  
-        self.c.close()
-        
-        file_menu = self.menuBar().addMenu('&File')
-        
-        help_menu = self.menuBar().addMenu('&Help')
-        self.setWindowTitle('Dekker Drawing Log 2')
-        self.setMinimumSize(850, 600)
-        #self.setMaximumSize(800, 1200)
-        
-        self.tableWidget = QTableWidget()
-        self.setCentralWidget(self.tableWidget)
-        self.tableWidget.setAlternatingRowColors(True)
-        self.tableWidget.setColumnCount(5)
-        
-        #self.tableWidget.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
-        #self.tableWidget.resizeColumnsToContents()
-        
-        self.tableWidget.setColumnWidth(0, 80)
-        self.tableWidget.setColumnWidth(1, 250)
-        self.tableWidget.setColumnWidth(2, 335)
-        self.tableWidget.setColumnWidth(3, 90)
-        self.tableWidget.setColumnWidth(4, 30)
-        
-        self.tableWidget.horizontalHeader().setStretchLastSection(True)
-        self.tableWidget.verticalHeader().setVisible(False)
-        
-        self.tableWidget.cellClicked.connect(self.cell_was_clicked)
-        self.tableWidget.cellChanged.connect(self.cell_was_changed)
-
-        #self.tableWidget.verticalHeader().setStretchLastSection(False)
-        #https://forum.qt.io/topic/3921/solved-qtablewidget-columns-with-different-width/4
-# =============================================================================
-#         self.tableWidget.horizontalHeader().setCascadingSectionResizes(False)
-#         self.tableWidget.horizontalHeader().setSortIndicatorShown(False)
-#         self.tableWidget.horizontalHeader().setStretchLastSection(True)
-#         self.tableWidget.verticalHeader().setVisible(False)
-#         self.tableWidget.verticalHeader().setCascadingSectionResizes(False)
-#         self.tableWidget.verticalHeader().setStretchLastSection(False)
-# =============================================================================
-        self.tableWidget.setHorizontalHeaderLabels(('Dwg No.', 'Part No.',
-                                            'Description', 'Date', 'Author'))
-        
-        toolbar = QToolBar()
-        toolbar.setMovable(False)
-        self.addToolBar(toolbar)
-        
-        statusbar = QStatusBar()
-        self.setStatusBar(statusbar)
-        
-        btn_ac_addpart = QAction(QIcon('icon/add_record.png'), 'Add Record', self)  # add part icon
-        btn_ac_addpart.triggered.connect(self.insert)
-        btn_ac_addpart.setStatusTip('Add a Record')
-        toolbar.addAction(btn_ac_addpart)
-        
-        btn_ac_refresh = QAction(QIcon('icon/r3.png'), 'Refresh', self)  # refresh icon
-        btn_ac_refresh.triggered.connect(self.loaddata)
-        btn_ac_refresh.setStatusTip('Refresh Table')
-        toolbar.addAction(btn_ac_refresh)
-       
-# =============================================================================
-#         btn_ac_delete = QAction(QIcon('icon/trash.png'), 'Delete', self) 
-#         #btn_ac_delete.triggered.connect(self.delete)
-#         btn_ac_delete.triggered.connect(self.deletedialog)
-#         btn_ac_delete.setStatusTip('Delete a record')
-#         toolbar.addAction(btn_ac_delete)
-# =============================================================================
-        
-        empty_label = QLabel()
-        empty_label.setText('         ')
-        toolbar.addWidget(empty_label)
-
-#-----------
-        
-        self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE*; kcarlton)')
-        self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
-                                    'GLOB characters *, ?, [, ], and ^ can be used for searching')
-        self.searchinput.returnPressed.connect(self.searchpart)
-
-        toolbar.addWidget(self.searchinput)
-        
-        
-
-    
-#-----------        
-        
-        addpart_action = QAction(QIcon('icon/add_record.png'), '&Add Record', self)
-        addpart_action.triggered.connect(self.insert)
-        file_menu.addAction(addpart_action)
-        
-        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
-        addrefresh_action.setShortcut(QKeySequence.Refresh)
-        addrefresh_action.triggered.connect(self.loaddata)
-        file_menu.addAction(addrefresh_action)
-
-        
-# =============================================================================
-#         searchpart_action = QAction(QIcon('icon/s1.png'), 'Search Records', self)
-#         searchpart_action.triggered.connect(self.search)
-#         file_menu.addAction(searchpart_action)
-# =============================================================================
-        
-# =============================================================================
-#         delpart_action = QAction(QIcon('icon/trash.png'), 'Delete a Record', self)
-#         delpart_action.triggered.connect(self.delete)
-#         file_menu.addAction(delpart_action)
-# =============================================================================
-        
-        quit_action = QAction(QIcon('icon/quit.png'), '&Quit', self)
-        quit_action.setShortcut(QKeySequence.Quit)
-        quit_action.triggered.connect(self._close)
-        file_menu.addAction(quit_action)
-        
-        help_action = QAction(QIcon('icon/question-mark.png'), '&Help', self) 
-        help_action.setShortcut(QKeySequence.HelpContents)
-        help_action.triggered.connect(self._help)
-        help_menu.addAction(help_action)
-        
-        about_action = QAction(QIcon('icon/i1.png'), '&About', self) 
-        about_action.triggered.connect(self.about)
-        help_menu.addAction(about_action)
-        
-# =============================================================================
-#     def setTableWidth(self):
-#         width = self.table.verticalHeader().width()
-#         width += self.table.horizontalHeader().length()
-#         if self.table.verticalScrollBar().isVisible():
-#             width += self.table.verticalScrollBar().width()
-#         width += self.table.frameWidth() * 2
-#         self.table.setFixedWidth(width)
-# =============================================================================
-        
-    def loaddata(self):
-        self.loadingdata = True
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        query = ('''SELECT dwg, part, description, date, author 
-                    FROM dwgnos
-                    ORDER BY dwg DESC LIMIT 100''')
-        result = c.execute(query)
-        self.tableWidget.setRowCount(0)
-        for row_number, row_data in enumerate(result):
-            self.tableWidget.insertRow(row_number)
-            for column_number, data in enumerate(row_data):
-                item = QTableWidgetItem(str(data))
-                self.tableWidget.setItem(row_number, column_number, item)
-        c.close()        
-        conn.close()
-        self.loadingdata = False
-        
-# =============================================================================
-#     def handlePaintRequest(self, printer):
-#         document = QTextDocument()
-#         cursor = QTextCursor(document)
-#         model = self.table.model()
-#         table = cursor.insertTable(model.rowCount, model.columnCount())
-#         for row in range(table.rows()):
-#             for column in range(talbe.columns()):
-#                 cursor.insrtText(model.item(row, column).text())
-#                 cursor.movePosition(QTextCursor.NextCell)
-#         document.print_(printer)
-# =============================================================================
-                
-    def insert(self):
-        dlg = InsertDialog()
-        dlg.exec_()
-        self.loaddata()
-        
-    def delete(self):
-        dlg = DeleteDialog()
-        dlg.exec_()
-        dlg.show()
-        self.loaddata()
-        
-    def deletedialog(self):
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Information)
-        msg.setText('Delete a Record')
-        msg.setText('To delete a record (a table row), replace the dwg no.\n'
-                    + 'with one of these words: delete, remove, or trash.  Then\n'
-                    + 'press the Enter key.')
-        msg.setWindowTitle('Remove a record')
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.exec_()
-        #msg.buttonClicked.connect(self.msgbtn)
-        
-    def msgbtn():
-        print('Button clicked')
-        
-    def search(self):
-        dlg = SearchDialog()
-        dlg.exec_()
-        
-    def about(self):
-        dlg = AboutDialog()
-        dlg.exec_()
-        
-    def _help(self):
-        dlg = HelpDialog()
-        dlg.exec_()
-        
-    def _close(self):
-        self.close()
-        
-    def onPressed(self):
-        self.label.setText(self.lineedit.text())
-                  
-    def searchpart(self):
-        searchterm = self.searchinput.text()
-        search(searchterm)
-             
-    def cell_was_clicked(self, row, column):
-        item = self.tableWidget.item(row, column)
-        self.clicked_cell_text = item.text().strip()
-                            
-    def cell_was_changed(self,row,column):
-        if self.loadingdata == False:
-            k = {}
-            item = self.tableWidget.item(row, column)
-            k['changed'] = item.text().strip().upper()
-            for n in range(5):
-                itemcol = self.tableWidget.item(row, n)
-                k[n] = itemcol.text()
-            clicked_text = self.clicked_cell_text
-            cell_changed(k, clicked_text, column)
-            self.loaddata()
-            
-                
-class SearchResults(QDialog):        
+class SearchResults(QDialog): 
+    ''' A dialog box to show search results based on a users search query.
+    The results are shown in a table.  Note that any changes made to a cell
+    in the table are passed on to the dwglog2.db database.  Afterward the
+    table is refreshed.
+    '''   
     def __init__(self, found, searchterm, parent=None):
         super(SearchResults, self).__init__(parent)
         
@@ -484,11 +351,10 @@ class SearchResults(QDialog):
         self.searchterm = searchterm
         lenfound = len(found)
         self.setWindowTitle('Search Results: ' + searchterm)
-        #self.setMinimumSize(850, lenfound*75)      # 600)
         self.setMinimumWidth(850)
         if lenfound >= 16:
             self.setMinimumHeight(600)
-        elif 16 > lenfound > 5:
+        elif 16 > lenfound > 5:    # to rescrict the size of the dialog box somewhat
             self.setMinimumHeight(lenfound*37 + 40)
         self.r_max = len(self.found)
         self.c_max = len(self.found[0])
@@ -513,8 +379,8 @@ class SearchResults(QDialog):
         self.setLayout(layout)
         self.loaddata()
         
-    def loaddata(self):
-        self.loadingdata = True            
+    def loaddata(self):  # or rather to reload data.  The __init__ func loads data without this func.
+        self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.         
         self.tableWidget.clear()
         self.tableWidget.setColumnCount(self.c_max)
         self.tableWidget.setRowCount(self.r_max)
@@ -528,27 +394,32 @@ class SearchResults(QDialog):
         self.loadingdata = False
         
     def searchpart(self):
+        ''' If a user changed a cell, then the database would have been updated.
+         This function serves to again search the database using the previously
+         used search query so that the table can be refreshed.
+        '''
         caller_is_SearchResults = True
         self.found = search(self.searchterm, caller_is_SearchResults)
                 
     def cell_was_clicked(self, row, column):
+        ''' When a user clicks on a table cell, record the text from that cell
+        before the user changes the contents.
+        '''
         item = self.tableWidget.item(row, column)
         self.clicked_cell_text = item.text().strip()
                             
-    def cell_was_changed(self,row,column):
+    def cell_was_changed(self, row, column):
         if self.loadingdata == False:
             k = {}
-            item = self.tableWidget.item(row, column)
-            k['changed'] = item.text().strip().upper()
             for n in range(5):
                 itemcol = self.tableWidget.item(row, n)
                 k[n] = itemcol.text()
-            clicked_text = self.clicked_cell_text
-            cell_changed(k, clicked_text, column)
-            self.searchpart()
-            self.loaddata()
-            
-
+            clicked_text = self.clicked_cell_text  # text previously in the cell
+            cell_changed(k, clicked_text, column)  # update database with new data
+            self.searchpart()  # cell was changed.  Search again to get table refreshed.
+            self.loaddata()   # cell was changed, so reload data from database
+        
+        
 def generate_nos(dwg_nos, partNo):
     '''
     Generate a new drawing number and a new part no.
@@ -588,6 +459,29 @@ def generate_nos(dwg_nos, partNo):
 
 
 def search(searchterm, caller_is_SearchResults=False):
+    '''  As explained in this program's help section, takes input of a form
+    like: "09*; 11/*/2020 or 09*; 12/*/2020", parses it according to embedded
+    semicolons and "or"s, then passes that info on to sqlite as a query,
+    and sqlite then yields search results from the dwglog2.db database. 
+    
+    Parameters
+    ----------
+    searchterm: str
+        A search term to search for. 
+        
+    caller_is_SearchResults: bool, optional
+        When this function is called upon by the "SearchResults" class, it sets
+        "caller_is_SearchResults" to True  The default is False.
+
+    Returns
+    -------
+    rows: list or SearchResults
+        If caller_is_SearchResults is set to True, returns a list tuples.  Each
+        tuple contains five items: dwg no., pt. no., description, date, and
+        author.  These tuples are found items based upon a users query.  If
+        caller_is_SearchResults is set to False, opens a gui window created by
+        the class "SearchResults" which shows query results.
+    '''
     searchlistparent = searchterm.split(' or ')
     searchlistparent = [x.strip('; ') for x in searchlistparent]  # get rid of any junk on ends of str
     sqlSelect = 'SELECT dwg, part, description, date, author FROM dwgnos WHERE ('
@@ -615,57 +509,91 @@ def search(searchterm, caller_is_SearchResults=False):
     except Exception:
         QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
 
-
+ 
 def cell_changed(k, clicked_text, column):
+    ''' This function is called if a table cell has changed, whether in the
+    table of the MainWindow or in a table in a SearchResults window.  The 
+    appropriatness of the change and how the change is handled depends on in 
+    what column the change is made in.  For example, if a user enters a value 
+    in a cell meant for a date, and the format of the text for that date is not
+    appropriate, the change will not be allowed.
+    
+    If the change is deemed acceptable, a change verification dialog is shown
+    to the user.  If the user clicks OK to verify the change, the sqlite 
+    dwglog2.db database is updated.
+    
+    Parameters
+    ----------
+    k: dictionary
+        The dicionary has keys named 0, 1, 2, 3, and 4.  The values
+        corresponding to these keys are text in columns 0 (dwg no.), 
+        1 (part no.), 2 (description), 3 (date), and 4 (author); these 
+        corresponding to the row that contains the cell that has changed.  
+    clicked_text: str
+        The original text that was in the cell that has been changed to 
+        contain the updated text.
+    column: int
+        The column in which the change occurred: 0, 1, 2, 3, or 4
+        (corresponding to the columns dwg, part, description, date, or author).
+        (Note that this "cell_changed" function knows to which table row to
+        apply the change to because k[0] of the dictionary contains the drawing
+        number, and this number is unique in the table.)
+
+    Returns
+    -------
+    None.  (The dwglog2.db database is updated.)
+
+    '''
     colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
+    k[column] = k[column].upper()
     if column == 1:
-        k['changed'] = k['changed'][:30]
+        k[column] = k[column][:30]
     elif column == 2:
-        k['changed'] = k['changed'][:40]
-    if column == 3 and k['changed'].count('/') == 2:  # date column
-        j = k['changed'].split('/')
+        k[column] = k[column][:40]
+    if column == 3 and k[column].count('/') == 2:  # date column
+        j = k[column].split('/')
         if (all(i.isdigit() for i in j)
                 and (1 <= int(j[0]) <= 12)
                 and (1 <= int(j[1]) <= 31)
                 and (1998 <= int(j[2]) <= 2099)):
-            k['changed'] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
+            k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
         else:
-            k['changed'] = 'abort3'
+            k[column] = 'abort3'
     elif column == 3:
-        k['changed'] = 'abort3'
-    elif column == 0 and k['changed'].lower() in ('delete', 'remove', 'trash', 'cut',
+        k[column] = 'abort3'
+    elif column == 0 and k[column].lower() in ('delete', 'remove', 'trash', 'cut',
                                                   'erase', 'void', 'null', 'clear'):
-        k['changed'] = 'delete'
-    elif column == 0 and  k['changed'].isdigit():  # dwgno col
+        k[column] = 'delete'
+    elif column == 0 and  k[column].isdigit():  # dwgno col
         conn = sqlite3.connect('dwglog2.db')
         c = conn.cursor()
         c.execute("SELECT dwg FROM dwgnos LIMIT 50")
         result = c.fetchall()
         dwgno, part = generate_nos(result, '')
-        if (int(k['changed']) < 2009193) or (dwgno + 20 > int(k['changed'])):
-            k['changed'] = 'abort0'
+        if (int(k[column]) < 2009193) or (dwgno + 20 > int(k[column])):
+            k[column] = 'abort0'
     elif column == 0:
-        k['changed'] = 'abort0'  
+        k[column] = 'abort0'  
     elif column == 4:
-        k['changed'] = k['changed'].lower()
-        
+        k[column] = k[column].lower()
+                
     try:
-        if k['changed'] == 'abort3':
+        if k[column] == 'abort3':
             raise  Exception('improper date format')
-        elif k['changed'] == 'abort0':
+        elif k[column] == 'abort0':
             raise  Exception('improper dwg. no.')
             
         # set up message box for user to verify update
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Warning)
-        if k['changed'] == 'delete':
+        if k[column] == 'delete':
             msgbox.setWindowTitle('Delete?')
             msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
                     + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
             msgbox.setText(msg)
         else:
             msgbox.setWindowTitle('Update?')
-            msg = ('from: ' +  clicked_text + '\nto:     ' + k['changed'])
+            msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
             msgbox.setText(msg)
         msgbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
         retval = msgbox.exec_()
@@ -673,23 +601,23 @@ def cell_changed(k, clicked_text, column):
             userresponse = False
         elif retval == QMessageBox.Ok:
             userresponse = True
-              
+                   
         if userresponse == True:    
             conn = sqlite3.connect("dwglog2.db")
             c = conn.cursor()
-            if column == 0 and k['changed'] == 'delete':
+            if column == 0 and k[column] == 'delete':
                 sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
             elif column == 0:
                 sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
                              + " = " + k + " WHERE dwg = " + clicked_text)
             else:
                 sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                             + " = '" + k['changed'] + "' WHERE dwg = " + k[0])
+                             + " = '" + k[column] + "' WHERE dwg = " + k[0])
             result = c.execute(sqlUpdate)
             conn.commit()
             c.close()        
             conn.close() 
-        
+            
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         QMessageBox.warning(QMessageBox(), 'Error', errmsg)
@@ -699,21 +627,10 @@ def cell_changed(k, clicked_text, column):
         else:
             QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')            
             
-            
-            
-def verifyQMessageBox(msg):
-    verify = QMessageBox()
-    verify.setIcon(QMessageBox.Warning)
-    verify.setText(msg)
-    verify.setWindowTitle('Verify')
-    verify.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-    verify.buttonClicked.connect(verifyUserResponse)
-    verify._exec()
-    
-def userResponse(i):
-    print("Button pressed is:",i.text())
-    
-        
+
+
+           
+                    
 app = QApplication(sys.argv)
 if (QDialog.Accepted == True):
     window = MainWindow()
