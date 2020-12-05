@@ -195,12 +195,19 @@ class HelpDialog(QDialog):
                      + '    finds:    2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
                      + '                 2020804, 093859, VMX0036KA1-00 575V TEFC, 11/04/2020, kcarlton\n'
                      + '                 ...\n\n'
-                     + '    query:  09* ; 0[345]/*/2020 ; kcarlton\n'
+                     + '    query:  09*; 0[345]/*/2020; kcarlton\n'
                      + '    finds:    2020811, 093902, VMX0103KA1-00 460V TEFC, 03/25/2020, kcarlton\n'
                      + '                 2020804, 093859, RVL212HH-14 W/OPTIONS 380V/50/3, 05/03/2020, kcarlton\n'
                      + '                 ...\n'
-                     + '    That is, finds production units of March, April, and May of 2020 by kcarlton.  The ;\n'
-                     + '    character finds the intersection of search results for 09*, 0[345]/*/2020, and kcarlton\n\n'
+                     + '        That is, finds production units of March, April, and May of 2020 by kcarlton.  The ; \n'
+                     + '        character finds the intersection of search results of "09*", "0[345]/*/2020", and "kcarlton"\n\n'
+                     + '    query:  09*; kcar*; 11/*/2020 or 09*; rcol*; 11/*/2020 or 09*; who*; 11/*/2020\n'
+                     + '    finds:     2020818, 093798, VMXVFD0203KA2-00 460V TEFC, 11/11/2020, kcarlton\n'
+                     + '                  2020816, 094189, RVL031H-03 PUMP W/VG 208-230/460V, 11/11/2020, rcollins\n'
+                     + '                  2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
+                     + '                 ...\n'
+                     + '        Yields results for any or all of "09*; kcar*; 11/*/2020" or "rcol*; 11/*/2020 or 09*"\n'
+                     + '        or "09*; who*; 11/*/2020".  The word "or" must be in lower case letters.\n\n'
                      + '    Note that searches are case sensitive.  For more inforation about searching, see:\n'
                      + '    https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
                      + 'Update a field:\n\n'
@@ -311,7 +318,7 @@ class MainWindow(QMainWindow):
 #-----------
         
         self.searchinput = QLineEdit()
-        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE* ; kcarlton)')
+        self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE*; kcarlton)')
         self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
                                     'GLOB characters *, ?, [, ], and ^ can be used for searching')
         self.searchinput.returnPressed.connect(self.searchpart)
@@ -581,36 +588,9 @@ def generate_nos(dwg_nos, partNo):
 
 
 def search(searchterm, caller_is_SearchResults=False):
-    #searchterm = self.searchinput.text()
-    searchlist = searchterm.split(';')
-    searchlist = [x.strip(' ') for x in searchlist]  # get rid of spaces around list items
-    try:
-        conn = sqlite3.connect("dwglog2.db")
-        c = conn.cursor()
-        s = set()
-        sqlSelect = 'SELECT dwg, part, description, date, author FROM dwgnos WHERE '
-        for i in searchlist:
-            sqlSelect = sqlSelect + '''(part GLOB '{0}' OR description GLOB '{0}'
-                                        OR author GLOB '{0}' OR dwg GLOB '{0}'
-                                        OR date GLOB '{0}') AND '''.format(i)
-        sqlSelect = sqlSelect[:-5] + ' ORDER BY dwg DESC'
-        result = c.execute(sqlSelect)            
-        rows = result.fetchall()
-        c.close()        
-        conn.close()
-        if caller_is_SearchResults:
-            return rows            
-        srch = SearchResults(rows, searchterm)
-        srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
-        srch.exec_()
-    except Exception:
-        QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
-
-
-def search(searchterm, caller_is_SearchResults=False):
+    searchlistparent = searchterm.split(' or ')
+    searchlistparent = [x.strip('; ') for x in searchlistparent]  # get rid of any junk on ends of str
     sqlSelect = 'SELECT dwg, part, description, date, author FROM dwgnos WHERE ('
-    searchlistparent = searchterm.split('also')
-    searchlistparent = [x.strip() for x in searchlistparent]  # get rid of spaces in list items
     for searchtermchild in searchlistparent:
         searchlistchild = searchtermchild.split(';')
         searchlistchild = [x.strip() for x in searchlistchild]
@@ -636,15 +616,6 @@ def search(searchterm, caller_is_SearchResults=False):
         QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
 
 
-
-
-
-
-
-
-
-        
- 
 def cell_changed(k, clicked_text, column):
     colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
     if column == 1:
