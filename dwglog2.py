@@ -11,12 +11,13 @@ in a sqlite database file.  This database file contains drawing numbers with
 associated part numbers, part discriptions, drawing dates, and drawing authors.
 """
 
-from PyQt5.QtCore import *
-from PyQt5.QtCore import QEvent
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtPrintSupport import *
+
+from PyQt5.QtCore import Qt 
+from PyQt5.QtWidgets import (QTableWidget, QMainWindow, QDialog, QApplication,
+                             QToolBar, QStatusBar, QAction, QLabel, QLineEdit,
+                             QTableWidgetItem, QVBoxLayout, QPushButton,
+                             QHBoxLayout, QMessageBox, QDialogButtonBox, QRadioButton)
+from PyQt5.QtGui import QIcon, QKeySequence, QPixmap
 import sys
 import sqlite3
 import os
@@ -83,11 +84,27 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.triggered.connect(self.loaddata)
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
-       
-        empty_label = QLabel()
-        empty_label.setText('         ')
-        toolbar.addWidget(empty_label)
         
+
+        empty_label1 = QLabel()
+        empty_label1.setText('   ')
+        toolbar.addWidget(empty_label1)
+
+        
+
+        self.radio_button_on = False
+        self.radio_button = QRadioButton('AutoCopy')
+        self.radio_button.setChecked(False)
+        self.radio_button.setStatusTip('Automatically copy contents of a clicked cell to the clipboard')
+        self.radio_button.clicked.connect(self.check)
+        toolbar.addWidget(self.radio_button)
+
+        
+
+        empty_label2 = QLabel()
+        empty_label2.setText('   ')
+        toolbar.addWidget(empty_label2)
+
         self.searchinput = QLineEdit()
         self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE*; kcarlton)')
         self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
@@ -152,6 +169,15 @@ class MainWindow(QMainWindow):
     def searchpart(self):
         searchterm = self.searchinput.text()
         search(searchterm)
+        
+    def check(self): 
+
+
+        if self.radio_button.isChecked(): 
+            self.radio_button_on = True
+        else: 
+             self.radio_button_on = False
+
              
     def cell_was_clicked(self, row, column):
         ''' When a user clicks on a table cell, record the text from that cell
@@ -159,6 +185,13 @@ class MainWindow(QMainWindow):
         '''
         item = self.tableWidget.item(row, column)
         self.clicked_cell_text = item.text().strip()
+
+        if self.radio_button_on == True: 
+            #cb = QtGui.QApplication.clipboard()
+            cb = QApplication.clipboard()
+            cb.clear(mode=cb.Clipboard )
+            cb.setText(self.clicked_cell_text, mode=cb.Clipboard)
+
                             
     def cell_was_changed(self,row,column):
         if self.loadingdata == False:
@@ -306,15 +339,15 @@ class HelpDialog(QDialog):
                      + '    finds:    2020811, 093902, VMX0103KA1-00 460V TEFC, 03/25/2020, kcarlton\n'
                      + '                 2020804, 093859, RVL212HH-14 W/OPTIONS 380V/50/3, 05/03/2020, kcarlton\n'
                      + '                 ...\n'
-                     + '        That is, finds production units of March, April, and May of 2020 by kcarlton.  The ; \n'
-                     + '        character finds the intersection of search results of "09*", "0[345]/*/2020", and "kcarlton"\n\n'
-                     + '    query:  09*; kcar*; 11/*/2020 or 09*; rcol*; 11/*/2020 or 09*; who*; 11/*/2020\n'
+                     + '          That is, finds production units of March, April, and May of 2020 by kcarlton.  The ; \n'
+                     + '          character finds the intersection of search results of "09*", "0[345]/*/2020", and "kcarlton"\n\n'
+                     + '    query:  09*; kcar*; 11/*/2020 or 09*; rcol*; 11/*/2020 or 09*; wh*; 11/*/2020\n'
                      + '    finds:     2020818, 093798, VMXVFD0203KA2-00 460V TEFC, 11/11/2020, kcarlton\n'
                      + '                  2020816, 094189, RVL031H-03 PUMP W/VG 208-230/460V, 11/11/2020, rcollins\n'
                      + '                  2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
                      + '                 ...\n'
-                     + '        Yields results for any or all of "09*; kcar*; 11/*/2020" or "rcol*; 11/*/2020 or 09*"\n'
-                     + '        or "09*; who*; 11/*/2020".  The word "or" must be in lower case letters.\n\n'
+                     + '          If any or all of searchterm1 or searchterm2 or searchterm3 yields results, those results\n'
+                     + '          are displayed. The word "or" must be in lower case letters.\n\n'
                      + '    Note that searches are case sensitive.  For more information about searching, see:\n'
                      + '    https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
                      + 'Update a field:\n\n'
@@ -374,25 +407,42 @@ class SearchResults(QDialog):
         self.tableWidget.setAlternatingRowColors(True)
         self.tableWidget.cellClicked.connect(self.cell_was_clicked)
         self.tableWidget.cellChanged.connect(self.cell_was_changed)
+        
+        btn_refresh = QPushButton()
+        btn_refresh.setIcon(QIcon("icon/r3.png"))
+        btn_refresh.setFixedSize(16, 16)
+        btn_refresh.setFlat(True)
+        btn_refresh.setToolTip('Refresh') 
+        btn_refresh.clicked.connect(self.refresh)
+
         layout = QVBoxLayout()
+        layout.addWidget(btn_refresh)
         layout.addWidget(self.tableWidget)
         self.setLayout(layout)
-        self.loaddata()
+        self.loaddata()     
         
-    def loaddata(self):  # or rather to reload data.  The __init__ func loads data without this func.
-        self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.         
-        self.tableWidget.clear()
-        self.tableWidget.setColumnCount(self.c_max)
-        self.tableWidget.setRowCount(self.r_max)
-        self.tableWidget.setHorizontalHeaderLabels(['Dwg No.', 'Part No.',
-                                            'Description', 'Date', 'Author'])
-        for r in range(self.r_max):
-            for c in range(self.c_max):
-                item = QTableWidgetItem(str(self.found[r][c]))
-                item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
-                self.tableWidget.setItem(r, c, item)
-        self.loadingdata = False
-        
+    def loaddata(self): 
+        ''' The __init__ func loads data without using this function.  Rather
+        this function reloads data.
+        '''
+        try:
+            self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.         
+            self.tableWidget.clear()
+            self.tableWidget.setColumnCount(self.c_max)
+            self.tableWidget.setRowCount(self.r_max)
+            self.tableWidget.setHorizontalHeaderLabels(['Dwg No.', 'Part No.',
+                                                'Description', 'Date', 'Author'])
+    
+            for r in range(self.r_max):
+                for c in range(self.c_max):
+                    item = QTableWidgetItem(str(self.found[r][c]))
+                    item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
+                    self.tableWidget.setItem(r, c, item)
+            self.loadingdata = False
+        except:
+            self.tableWidget.clear()
+            self.loadingdata = False
+            
     def searchpart(self):
         ''' If a user changed a cell, then the database would have been updated.
          This function serves to again search the database using the previously
@@ -400,24 +450,37 @@ class SearchResults(QDialog):
         '''
         caller_is_SearchResults = True
         self.found = search(self.searchterm, caller_is_SearchResults)
+        if len(self.found):
+            self.r_max = len(self.found)
+            self.c_max = len(self.found[0])
                 
     def cell_was_clicked(self, row, column):
         ''' When a user clicks on a table cell, record the text from that cell
         before the user changes the contents.
         '''
-        item = self.tableWidget.item(row, column)
-        self.clicked_cell_text = item.text().strip()
+        try:
+            item = self.tableWidget.item(row, column)
+            self.clicked_cell_text = item.text().strip()
+        except:
+            pass
                             
     def cell_was_changed(self, row, column):
-        if self.loadingdata == False:
-            k = {}
-            for n in range(5):
-                itemcol = self.tableWidget.item(row, n)
-                k[n] = itemcol.text()
-            clicked_text = self.clicked_cell_text  # text previously in the cell
-            cell_changed(k, clicked_text, column)  # update database with new data
-            self.searchpart()  # cell was changed.  Search again to get table refreshed.
-            self.loaddata()   # cell was changed, so reload data from database
+        try:
+            if self.loadingdata == False:
+                k = {}
+                for n in range(5):
+                    itemcol = self.tableWidget.item(row, n)
+                    k[n] = itemcol.text()
+                clicked_text = self.clicked_cell_text  # text previously in the cell
+                cell_changed(k, clicked_text, column)  # update database with new data
+                self.searchpart()  # cell was changed.  Search again to get table refreshed.
+                self.loaddata()   # cell was changed, so reload data from database
+        except:
+            self.tableWidget.clear()
+        
+    def refresh(self):
+        self.searchpart()
+        self.loaddata()
         
         
 def generate_nos(dwg_nos, partNo):
