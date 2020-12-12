@@ -168,17 +168,14 @@ class MainWindow(QMainWindow):
                   
     def searchpart(self):
         searchterm = self.searchinput.text()
-        search(searchterm)
+        search(searchterm, self.radio_button_on)
         
     def check(self): 
-
-
         if self.radio_button.isChecked(): 
             self.radio_button_on = True
         else: 
              self.radio_button_on = False
 
-             
     def cell_was_clicked(self, row, column):
         ''' When a user clicks on a table cell, record the text from that cell
         before the user changes the contents.
@@ -192,7 +189,6 @@ class MainWindow(QMainWindow):
             cb.clear(mode=cb.Clipboard )
             cb.setText(self.clicked_cell_text, mode=cb.Clipboard)
 
-                            
     def cell_was_changed(self,row,column):
         if self.loadingdata == False:
             k = {}
@@ -360,6 +356,8 @@ class HelpDialog(QDialog):
                      + '    the same data shown to you.  You may wish to push the refresh button to see changes\n'
                      + '    other users have made while you have been working with the program.  Also, if you wish\n'
                      + '    to see that your data has been updated successfully, push the refresh button.\n\n'
+                     + 'AutoCopy:\n\n'
+                     + '    Automatically copy contents of a clicked cell to the clipboard.  That is, Ctrl-C not needed.'
                      )            
         
         layout.addWidget(QLabel(helpinfo))
@@ -373,15 +371,19 @@ class SearchResults(QDialog):
     in the table are passed on to the dwglog2.db database.  Afterward the
     table is refreshed.
     '''   
-    def __init__(self, found, searchterm, parent=None):
+    def __init__(self, found, searchterm, radio_button_on, parent=None):
         super(SearchResults, self).__init__(parent)
         
-        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
-        addrefresh_action.setShortcut(QKeySequence.Refresh)
-        addrefresh_action.triggered.connect(self.loaddata)
+        
+# =============================================================================
+#         addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
+#         addrefresh_action.setShortcut(QKeySequence.Refresh)
+#         addrefresh_action.triggered.connect(self.loaddata)
+# =============================================================================
         
         self.found = found
         self.searchterm = searchterm
+        self.radio_button_on = radio_button_on
         lenfound = len(found)
         self.setWindowTitle('Search Results: ' + searchterm)
         self.setMinimumWidth(850)
@@ -414,12 +416,38 @@ class SearchResults(QDialog):
         btn_refresh.setFlat(True)
         btn_refresh.setToolTip('Refresh') 
         btn_refresh.clicked.connect(self.refresh)
-
+        
+        self.radio_button = QRadioButton('AutoCopy')
+        if self.radio_button_on==True:
+            self.radio_button.setChecked(True)
+        else:            
+            self.radio_button.setChecked(False)
+        self.radio_button.clicked.connect(self.check)
+        
+        hbox = QHBoxLayout()
+        hbox.setSpacing(18)
+        #hbox.addStretch(2)
+        hbox.addWidget(btn_refresh)
+        hbox.addWidget(self.radio_button)
+        
         layout = QVBoxLayout()
-        layout.addWidget(btn_refresh)
+        #layout.addStretch(1)
+        layout.addLayout(hbox)
+
+        #layout = QVBoxLayout()
+        #layout.addWidget(btn_refresh)
+        #layout.addWidget(self.radio_button)
         layout.addWidget(self.tableWidget)
         self.setLayout(layout)
-        self.loaddata()     
+        self.loaddata() 
+        
+    def check(self): 
+        if self.radio_button.isChecked(): 
+            self.radio_button_on = True
+        else: 
+            self.radio_button_on = False 
+        print('aaa')
+        print(self.radio_button_on)
         
     def loaddata(self): 
         ''' The __init__ func loads data without using this function.  Rather
@@ -449,7 +477,7 @@ class SearchResults(QDialog):
          used search query so that the table can be refreshed.
         '''
         caller_is_SearchResults = True
-        self.found = search(self.searchterm, caller_is_SearchResults)
+        self.found = search(self.searchterm, self.radio_button_on, caller_is_SearchResults)
         if len(self.found):
             self.r_max = len(self.found)
             self.c_max = len(self.found[0])
@@ -461,6 +489,10 @@ class SearchResults(QDialog):
         try:
             item = self.tableWidget.item(row, column)
             self.clicked_cell_text = item.text().strip()
+            if self.radio_button_on == True: 
+                cb = QApplication.clipboard()
+                cb.clear(mode=cb.Clipboard )
+                cb.setText(self.clicked_cell_text, mode=cb.Clipboard)
         except:
             pass
                             
@@ -521,7 +553,7 @@ def generate_nos(dwg_nos, partNo):
     return dwgNo, partNo
 
 
-def search(searchterm, caller_is_SearchResults=False):
+def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
     '''  As explained in this program's help section, takes input of a form
     like: "09*; 11/*/2020 or 09*; 12/*/2020", parses it according to embedded
     semicolons and "or"s, then passes that info on to sqlite as a query,
@@ -566,7 +598,7 @@ def search(searchterm, caller_is_SearchResults=False):
         conn.close()
         if caller_is_SearchResults:
             return rows            
-        srch = SearchResults(rows, searchterm)
+        srch = SearchResults(rows, searchterm, radio_button_on)
         srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
         srch.exec_()
     except Exception:
