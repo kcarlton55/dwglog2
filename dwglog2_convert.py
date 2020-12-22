@@ -77,17 +77,18 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
         df.sort_values(by=['dwg'], inplace=True, ascending=True)
         
         # code to export to sqlite db file:                
-        conn = sqlite3.connect('dwglog2.db')
+        conn = sqlite3.connect(fn_out)
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS 
-                        dwgnos(dwg INTERGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
-                        description TEXT, date TEXT NOT NULL, author TEXT)''') 
-        c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')                                 
+                        dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                        dwg INTERGER NOT NULL UNIQUE, part TEXT, 
+                        description TEXT, date TEXT NOT NULL, author TEXT)''')                                 
         df_dict = df.to_dict()        
         len_dict = len(df_dict['dwg'])
         not_unique = []
         for i in range(len_dict):
-            dwg = str(df_dict['dwg'][i])
+            dwg = str(df_dict['dwg'][i])  # e.g. 2021125            
+            dwg_index = dwg[:4] + (9 % len(dwg))*'0' + dwg[4:] # e.g. 202100125      
             part = str(df_dict['part'][i])
             description = str(df_dict['description'][i])
             date = df_dict['date'][i]
@@ -95,10 +96,10 @@ def excel2db(fn_in, fn_out='dwglog2.db'):
             #_date = date.strftime("%Y-%m-%d")
             _date = date.strftime("%m/%d/%Y")
             try:
-                c.execute("INSERT INTO dwgnos (dwg, part, description, date, author) VALUES (?,?,?,?,?)",
-                                             (dwg, part, description, _date, author))
+                c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, date, author) VALUES (?,?,?,?,?,?)",
+                                             (dwg_index, dwg, part, description, _date, author))
                 conn.commit()
-                print("{:9} {:32} {:42} {:12} {:14}".format(dwg, part, description, _date, author))  
+                print("{:7} {:8} {:32} {:42} {:12} {:14}".format(dwg_index, dwg, part, description, _date, author))  
             except:
                 not_unique.append(dwg)             
         c.close()

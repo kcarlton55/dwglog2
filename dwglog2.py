@@ -39,9 +39,9 @@ class MainWindow(QMainWindow):
         self.conn = sqlite3.connect('dwglog2.db')
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS 
-                        dwgnos(dwg INTEGER PRIMARY KEY NOT NULL UNIQUE, part TEXT, 
+                        dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                        dwg KEY NOT NULL UNIQUE, part TEXT, 
                         description TEXT, date TEXT NOT NULL, author TEXT)''')
-        self.c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_dwgnos_dwg ON dwgnos (dwg)')  
         self.c.close()
         
         file_menu = self.menuBar().addMenu('&File')
@@ -141,7 +141,7 @@ class MainWindow(QMainWindow):
         c = conn.cursor()
         query = ('''SELECT dwg, part, description, date, author 
                     FROM dwgnos
-                    ORDER BY dwg DESC LIMIT 100''')
+                    ORDER BY dwg_index DESC LIMIT 100''')
         result = c.execute(query)
         self.tableWidget.setRowCount(0)
         for row_number, row_data in enumerate(result):
@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
     def cell_was_changed(self,row,column):
         if self.loadingdata == False:
             k = {}
-            for n in range(5):
+            for n in range(6):
                 itemcol = self.tableWidget.item(row, n)
                 k[n] = itemcol.text()
             clicked_text = self.clicked_cell_text  # text previously in the cell
@@ -350,7 +350,7 @@ class HelpDialog(QDialog):
                      + '    To update a field (a table cell), change the text in the cell and then press the Enter key.\n\n'
                      + 'Delete a record:\n\n'
                      + '    To delete a data record (a table row), enter one of the following words into the cell\n'
-                     + '    that contains the drawing number: delete, remove, trash.  Then press Enter.\n\n'
+                     + '    that contains the drawing number: delete, remove, del, or rm.  Then press Enter.\n\n'
                      + 'Refresh the table:\n\n'
                      + '    While you are working on the dwglog2 program, other users simultaneously have access to\n'
                      + '    the same data shown to you.  You may wish to push the refresh button to see changes\n'
@@ -500,7 +500,7 @@ class SearchResults(QDialog):
         try:
             if self.loadingdata == False:
                 k = {}
-                for n in range(5):
+                for n in range(6):
                     itemcol = self.tableWidget.item(row, n)
                     k[n] = itemcol.text()
                 clicked_text = self.clicked_cell_text  # text previously in the cell
@@ -515,7 +515,7 @@ class SearchResults(QDialog):
         self.loaddata()
         
         
-def generate_nos(dwg_nos, partNo):
+def generate_nos(dwg_indexes, partNo):
     '''
     Generate a new drawing number and a new part no.
 
@@ -538,13 +538,23 @@ def generate_nos(dwg_nos, partNo):
         change nos. from, for example, '0300' to '0300-2020-051', or 
         '6521' to '6521-2020-051'.
     '''
-    year = date.today().year  # current year, e.g. 2020 (an int)
+    year = date.today().year  # current year, e.g. 2021 (an int)
     int_list = []
-    for x in dwg_nos:  # dwg_nos has a form like [(2020048,), (2020049,), (2020050,)]
+    for x in dwg_indexes:  # dwg_nos has a form like [(202100855,), (202100856,), (202100857,)]
         if isinstance(x[0], int) and str(x[0])[:4] == str(year):
-            int_list.append(x[0])  
-    if int_list:
-        dwgNo = max(int_list) + 1
+            int_list.append(x[0])  # a list of recent dwg. nos.
+    if int_list:  # list of dwg nos. in the current year
+        largest = max(int_list) 
+        increment = largest + 1
+        chrs = str(increment)[4:]  # e.g., from 202100855 -> "00855"
+        whittled = chrs
+        for x in chrs:                       # whittle off leading zeros
+            if x=='0':
+                whittled = whittled[1:]
+            else:
+                break
+        whittled = whittled.zfill(3)      # e.g. "5" to "005", or "13" to "013"
+        dwgNo = int(str(year) + whittled)
     else:
         dwgNo = year*1000 + 1  # if no ints in list, then is 1st dwg no. for a new year
     if ((partNo.isnumeric() and len(partNo) == 4) or
@@ -588,7 +598,7 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
                               OR author GLOB '{0}' OR dwg GLOB '{0}'
                               OR date GLOB '{0}') AND '''.format(i)
         sqlSelect = sqlSelect[:-5] + ') OR ('   
-    sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg DESC'        
+    sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg_index DESC'        
     try:
         conn = sqlite3.connect("dwglog2.db")
         c = conn.cursor()
@@ -602,9 +612,13 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
         srch.show()  # https://stackoverflow.com/questions/11920401/pyqt-accesing-main-windows-data-from-a-dialog
         srch.exec_()
     except Exception:
-        QMessageBox.warning(QMessageBox(), 'Error', 'Could not find text searched for.')
+        msgbox = QMessageBox()
+        msgbox.setIcon(QMessageBox.Warning)
+        msgbox.setWindowTitle('Error')
+        msgbox.setText('Could not find text searched for.')
+        msgbox.exec_()
+        
 
- 
 def cell_changed(k, clicked_text, column):
     ''' This function is called if a table cell has changed, whether in the
     table of the MainWindow or in a table in a SearchResults window.  The 
@@ -639,13 +653,13 @@ def cell_changed(k, clicked_text, column):
     None.  (The dwglog2.db database is updated.)
 
     '''
-    colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
+    colnames = {0:'dwg_index', 1:'dwg', 2:'part', 3:'description', 4:'date', 5:'author'}
     k[column] = k[column].upper()
-    if column == 1:
+    if column == 2:
         k[column] = k[column][:30]
-    elif column == 2:
+    elif column == 3:
         k[column] = k[column][:40]
-    if column == 3 and k[column].count('/') == 2:  # date column
+    if column == 4 and k[column].count('/') == 2:  # date column
         j = k[column].split('/')
         if (all(i.isdigit() for i in j)
                 and (1 <= int(j[0]) <= 12)
@@ -654,19 +668,24 @@ def cell_changed(k, clicked_text, column):
             k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
         else:
             k[column] = 'abort3'
-    elif column == 3:
+    elif column == 4:
         k[column] = 'abort3'
-    elif column == 0 and k[column].lower() in ('delete', 'remove', 'trash', 'cut',
-                                                  'erase', 'void', 'null', 'clear'):
+    elif column == 1 and k[column].lower() in ('delete', 'remove', 'del', 'rm', 'trash', 
+                                               'cut', 'erase', 'void', 'null', 'clear'):
         k[column] = 'delete'
-    elif column == 0 and  k[column].isdigit():  # dwgno col
+    elif column == 1 and  k[column].isdigit():  # dwgno col
         conn = sqlite3.connect('dwglog2.db')
         c = conn.cursor()
-        c.execute("SELECT dwg FROM dwgnos LIMIT 50")
+        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 50")
         result = c.fetchall()
+        c.close()        
+        conn.close() 
         dwgno, part = generate_nos(result, '')
-        if (int(k[column]) < 2009193) or (dwgno + 20 > int(k[column])):
+        maxallowdwgno = (dwgno + 49)
+        if int(k[column]) < 2009193:
             k[column] = 'abort0'
+        elif (maxallowdwgno < int(k[column])):
+            k[column] = 'abort0_maxexceeded'
     elif column == 0:
         k[column] = 'abort0'  
     elif column == 4:
@@ -674,10 +693,20 @@ def cell_changed(k, clicked_text, column):
                 
     try:
         if k[column] == 'abort3':
-            raise  Exception('improper date format')
-        elif k[column] == 'abort0':
-            raise  Exception('improper dwg. no.')
-            
+            #raise  Exception('improper date format')
+            return
+        elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
+            if k[column] == 'abort0_maxexceeded':
+                msg = 'Maximum allowed drawing number: ' + str(maxallowdwgno)
+            else:
+                msg = 'Improper dwg. no.'
+            msgbox = QMessageBox()
+            msgbox.setIcon(QMessageBox.Warning)
+            msgbox.setWindowTitle('Error')
+            msgbox.setText(msg)
+            msgbox.exec_()
+            return
+         
         # set up message box for user to verify update
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Warning)
@@ -704,7 +733,7 @@ def cell_changed(k, clicked_text, column):
                 sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
             elif column == 0:
                 sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                             + " = " + k + " WHERE dwg = " + clicked_text)
+                             + " = " + k[column] + " WHERE dwg = " + clicked_text)
             else:
                 sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
                              + " = '" + k[column] + "' WHERE dwg = " + k[0])
