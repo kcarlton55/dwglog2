@@ -192,7 +192,7 @@ class MainWindow(QMainWindow):
     def cell_was_changed(self,row,column):
         if self.loadingdata == False:
             k = {}
-            for n in range(6):
+            for n in range(5):
                 itemcol = self.tableWidget.item(row, n)
                 k[n] = itemcol.text()
             clicked_text = self.clicked_cell_text  # text previously in the cell
@@ -278,20 +278,20 @@ class AddDialog(QDialog):
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg FROM dwgnos ORDER BY dwg DESC LIMIT 50")
+            self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg DESC LIMIT 50")
             result = self.c.fetchall()
-            dwgno, part = generate_nos(result, part)
-            self.c.execute("INSERT INTO dwgnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
-                           (dwgno, part, description, _date, author))
+            dwgno, part, new_dwg_index = generate_nos(result, part)
+            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                           (new_dwg_index, dwgno, part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
             self.close()
         except TypeError:
             year = date.today().year
-            dwgno, part  = year*1000, 'Invalid part no.'
-            self.c.execute("INSERT INTO dwgnos (dwg, part, description, Date, author) VALUES (?,?,?,?,?)",
-                           (dwgno, part, description, _date, author))
+            dwgno, part, new_dwg_index  = year*1000, 'Invalid part no.'
+            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                           (new_dwg_index, dwgno, part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -446,7 +446,6 @@ class SearchResults(QDialog):
             self.radio_button_on = True
         else: 
             self.radio_button_on = False 
-        print('aaa')
         print(self.radio_button_on)
         
     def loaddata(self): 
@@ -500,7 +499,7 @@ class SearchResults(QDialog):
         try:
             if self.loadingdata == False:
                 k = {}
-                for n in range(6):
+                for n in range(5):
                     itemcol = self.tableWidget.item(row, n)
                     k[n] = itemcol.text()
                 clicked_text = self.clicked_cell_text  # text previously in the cell
@@ -524,7 +523,7 @@ def generate_nos(dwg_indexes, partNo):
     dwg_nos: list
         A list of tuples derived from the dwg column of the prtnos table of the
         dwglog2.db sqlite database file.  The list has a form like:
-        [(2020048,), (2020049,), (2020050,)]
+        [(202100855,), (202100856,), (202100857,)]
             
     partNo: str
         Part no. given by the user.
@@ -537,16 +536,21 @@ def generate_nos(dwg_indexes, partNo):
         Same PartNo as input to this function unless autofill kicks in to
         change nos. from, for example, '0300' to '0300-2020-051', or 
         '6521' to '6521-2020-051'.
+    new_dwg_index: int
+        ROWID, used by Sqlite, to order data and to generate new part nos.
+        e.g. 202100855.
     '''
     year = date.today().year  # current year, e.g. 2021 (an int)
     int_list = []
     for x in dwg_indexes:  # dwg_nos has a form like [(202100855,), (202100856,), (202100857,)]
         if isinstance(x[0], int) and str(x[0])[:4] == str(year):
             int_list.append(x[0])  # a list of recent dwg. nos.
+    print('hhh')
+    print(int_list)
     if int_list:  # list of dwg nos. in the current year
         largest = max(int_list) 
-        increment = largest + 1
-        chrs = str(increment)[4:]  # e.g., from 202100855 -> "00855"
+        new_dwg_index = largest + 1
+        chrs = str(new_dwg_index)[4:]  # e.g., from 202100855 -> "00855"
         whittled = chrs
         for x in chrs:                       # whittle off leading zeros
             if x=='0':
@@ -560,7 +564,9 @@ def generate_nos(dwg_indexes, partNo):
     if ((partNo.isnumeric() and len(partNo) == 4) or
            (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
         partNo = partNo[:4] + '-' + str(year) + '-' + str(dwgNo)[4:]
-    return dwgNo, partNo
+    print('fff')
+    print(dwgNo, partNo, new_dwg_index)
+    return dwgNo, partNo, new_dwg_index
 
 
 def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
@@ -653,13 +659,13 @@ def cell_changed(k, clicked_text, column):
     None.  (The dwglog2.db database is updated.)
 
     '''
-    colnames = {0:'dwg_index', 1:'dwg', 2:'part', 3:'description', 4:'date', 5:'author'}
+    colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
     k[column] = k[column].upper()
-    if column == 2:
+    if column == 1:
         k[column] = k[column][:30]
-    elif column == 3:
+    elif column == 2:
         k[column] = k[column][:40]
-    if column == 4 and k[column].count('/') == 2:  # date column
+    if column == 3 and k[column].count('/') == 2:  # date column
         j = k[column].split('/')
         if (all(i.isdigit() for i in j)
                 and (1 <= int(j[0]) <= 12)
@@ -668,19 +674,19 @@ def cell_changed(k, clicked_text, column):
             k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
         else:
             k[column] = 'abort3'
-    elif column == 4:
+    elif column == 3:
         k[column] = 'abort3'
-    elif column == 1 and k[column].lower() in ('delete', 'remove', 'del', 'rm', 'trash', 
+    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm', 'trash', 
                                                'cut', 'erase', 'void', 'null', 'clear'):
         k[column] = 'delete'
-    elif column == 1 and  k[column].isdigit():  # dwgno col
+    elif column == 0 and  k[column].isdigit():  # dwgno col
         conn = sqlite3.connect('dwglog2.db')
         c = conn.cursor()
         c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 50")
         result = c.fetchall()
         c.close()        
         conn.close() 
-        dwgno, part = generate_nos(result, '')
+        dwgno, part, new_dwg_index = generate_nos(result, '')
         maxallowdwgno = (dwgno + 49)
         if int(k[column]) < 2009193:
             k[column] = 'abort0'
