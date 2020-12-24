@@ -22,6 +22,7 @@ import sys
 import sqlite3
 import os
 from datetime import datetime, date
+import webbrowser
 
 __version__ = '0.1'
 __author__ = 'Kenneth E. Carlton'
@@ -163,8 +164,7 @@ class MainWindow(QMainWindow):
         dlg.exec_()
         
     def _help(self):
-        dlg = HelpDialog()
-        dlg.exec_()
+        webbrowser.open('dwglog2_help.html')
                   
     def searchpart(self):
         searchterm = self.searchinput.text()
@@ -216,13 +216,13 @@ class AboutDialog(QDialog):
         self.setWindowTitle('About')
         
         labelpic = QLabel()
-        pixmap = QPixmap('icon/dekkerlogo.png')
-        pixmap = pixmap.scaledToWidth(275)
+        pixmap = QPixmap('icon/dekker_logo.png')
+        pixmap = pixmap.scaledToWidth(275)  # was 275
         labelpic.setPixmap(pixmap)
-        labelpic.setFixedHeight(150)
+        labelpic.setFixedHeight(150)        # was 150
     
         layout.addWidget(labelpic)
-        layout.addWidget(QLabel('program name: dwglog2, version: ' + __version__ + '\n'
+        layout.addWidget(QLabel('Program name: dwglog2, version: ' + __version__ + '\n'
                                 + 'Written by: Ken Carlton, December 1, 2020'))
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
@@ -306,63 +306,6 @@ class AddDialog(QDialog):
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
-        
-        
-class HelpDialog(QDialog):
-    ''' Show help info '''
-    def __init__(self, *args, **kwargs):
-        super(HelpDialog, self).__init__(*args, **kwargs)
-        
-        QBtn = QDialogButtonBox.Ok
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-        
-        layout = QVBoxLayout()
-        self.setWindowTitle('Help')
-        
-        helpinfo = ('Add a new record:\n\n'
-                     + '    Press the button that has the plus sign on it.  Enter the part no. and description.\n'
-                     + '    Other record fields (dwg no., date, author) will be automatically filled in.  If\n'
-                     + '    only the first four digits of a part no. are entered, then the remainder of the\n'
-                     + '    part no. will be filled in automatically.  That is 0300 -> 0300-2020-401\n\n'
-                     + 'Search examples:\n\n'
-                     + '    query:  VMX0036?A1-00*    (note the use of the quesion mark, ?)\n'
-                     + '    finds:    2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
-                     + '                 2020804, 093859, VMX0036KA1-00 575V TEFC, 11/04/2020, kcarlton\n'
-                     + '                 ...\n\n'
-                     + '    query:  09*; 0[345]/*/2020; kcarlton\n'
-                     + '    finds:    2020811, 093902, VMX0103KA1-00 460V TEFC, 03/25/2020, kcarlton\n'
-                     + '                 2020804, 093859, RVL212HH-14 W/OPTIONS 380V/50/3, 05/03/2020, kcarlton\n'
-                     + '                 ...\n'
-                     + '          That is, finds production units of March, April, and May of 2020 by kcarlton.  The ; \n'
-                     + '          character finds the intersection of search results of "09*", "0[345]/*/2020", and "kcarlton"\n\n'
-                     + '    query:  09*; kcar*; 11/*/2020 or 09*; rcol*; 11/*/2020 or 09*; wh*; 11/*/2020\n'
-                     + '    finds:     2020818, 093798, VMXVFD0203KA2-00 460V TEFC, 11/11/2020, kcarlton\n'
-                     + '                  2020816, 094189, RVL031H-03 PUMP W/VG 208-230/460V, 11/11/2020, rcollins\n'
-                     + '                  2020808, 093954, VMX0036MA1-00 460V TEFC, 11/04/2020, whoyt\n'
-                     + '                 ...\n'
-                     + '          If any or all of searchterm1 or searchterm2 or searchterm3 yields results, those results\n'
-                     + '          are displayed. The word "or" must be in lower case letters.\n\n'
-                     + '    Note that searches are case sensitive.  For more information about searching, see:\n'
-                     + '    https://en.wikipedia.org/wiki/Glob_(programming) \n\n'
-                     + 'Update a field:\n\n'
-                     + '    To update a field (a table cell), change the text in the cell and then press the Enter key.\n\n'
-                     + 'Delete a record:\n\n'
-                     + '    To delete a data record (a table row), enter one of the following words into the cell\n'
-                     + '    that contains the drawing number: delete, remove, del, or rm.  Then press Enter.\n\n'
-                     + 'Refresh the table:\n\n'
-                     + '    While you are working on the dwglog2 program, other users simultaneously have access to\n'
-                     + '    the same data shown to you.  You may wish to push the refresh button to see changes\n'
-                     + '    other users have made while you have been working with the program.  Also, if you wish\n'
-                     + '    to see that your data has been updated successfully, push the refresh button.\n\n'
-                     + 'AutoCopy:\n\n'
-                     + '    Automatically copy contents of a clicked cell to the clipboard.  That is, Ctrl-C not needed.'
-                     )            
-        
-        layout.addWidget(QLabel(helpinfo))
-        layout.addWidget(self.buttonBox)
-        self.setLayout(layout)
         
         
 class SearchResults(QDialog): 
@@ -545,8 +488,6 @@ def generate_nos(dwg_indexes, partNo):
     for x in dwg_indexes:  # dwg_nos has a form like [(202100855,), (202100856,), (202100857,)]
         if isinstance(x[0], int) and str(x[0])[:4] == str(year):
             int_list.append(x[0])  # a list of recent dwg. nos.
-    print('hhh')
-    print(int_list)
     if int_list:  # list of dwg nos. in the current year
         largest = max(int_list) 
         new_dwg_index = largest + 1
@@ -564,8 +505,6 @@ def generate_nos(dwg_indexes, partNo):
     if ((partNo.isnumeric() and len(partNo) == 4) or
            (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
         partNo = partNo[:4] + '-' + str(year) + '-' + str(dwgNo)[4:]
-    print('fff')
-    print(dwgNo, partNo, new_dwg_index)
     return dwgNo, partNo, new_dwg_index
 
 
@@ -687,11 +626,17 @@ def cell_changed(k, clicked_text, column):
         c.close()        
         conn.close() 
         dwgno, part, new_dwg_index = generate_nos(result, '')
-        maxallowdwgno = (dwgno + 49)
+        maxallowdwgno = indexnum2dwgnum(new_dwg_index + 49)
+        print('aaa')
+        print("new_dwg_index + 49:", new_dwg_index + 49)
+        print("new_dwg_index: ", new_dwg_index, type(new_dwg_index))
+        print("maxallowdwgno: ", maxallowdwgno, type(maxallowdwgno))
+        print("indexnum2dwgnum(new_dwg_index): ", indexnum2dwgnum(new_dwg_index), type(indexnum2dwgnum(new_dwg_index)))
         if int(k[column]) < 2009193:
             k[column] = 'abort0'
         elif (maxallowdwgno < int(k[column])):
             k[column] = 'abort0_maxexceeded'
+               
     elif column == 0:
         k[column] = 'abort0'  
     elif column == 4:
@@ -756,9 +701,18 @@ def cell_changed(k, clicked_text, column):
             QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
         else:
             QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')            
+
             
-
-
+def indexnum2dwgnum(dwg_index):
+    chrs = str(dwg_index)[4:]
+    whittled = chrs    
+    for x in chrs:                       # whittle off leading zeros
+        if x=='0':
+            whittled = whittled[1:]
+        else:
+            break
+    whittled = whittled.zfill(3)      # e.g. "5" to "005", or "13" to "013"
+    return int(str(dwg_index)[:4] + whittled)
            
                     
 app = QApplication(sys.argv)
