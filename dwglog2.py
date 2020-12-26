@@ -599,7 +599,25 @@ def cell_changed(k, clicked_text, column):
 
     '''
     colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
-    k[column] = k[column].upper()
+    if column in [0, 1, 2, 3] and isinstance(k[column], str):
+        k[column] = k[column].upper()
+    elif column == 4 and isinstance(k[4], str):
+        k[4] = k[column].lower()
+    overwrite = False
+    originalnum = False
+    
+    if column == 0:
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
+        result1 = c.fetchone()
+        c.execute("SELECT dwg_index FROM dwgnos WHERE dwg = '" + clicked_text + "'")
+        result2 = c.fetchone()
+        c.close()        
+        conn.close()
+        currentIndex = result2[0]
+        lastIndex = result1[0]
+    
     if column == 1:
         k[column] = k[column][:30]
     elif column == 2:
@@ -615,30 +633,22 @@ def cell_changed(k, clicked_text, column):
             k[column] = 'abort3'
     elif column == 3:
         k[column] = 'abort3'
-    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm', 'trash', 
-                                               'cut', 'erase', 'void', 'null', 'clear'):
+    # case 1: delete a record:    
+    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm'):
         k[column] = 'delete'
-    elif column == 0 and  k[column].isdigit():  # dwgno col
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 50")
-        result = c.fetchall()
-        c.close()        
-        conn.close() 
-        dwgno, part, new_dwg_index = generate_nos(result, '')
-        maxallowdwgno = indexnum2dwgnum(new_dwg_index + 49)
-        print('aaa')
-        print("new_dwg_index + 49:", new_dwg_index + 49)
-        print("new_dwg_index: ", new_dwg_index, type(new_dwg_index))
-        print("maxallowdwgno: ", maxallowdwgno, type(maxallowdwgno))
-        print("indexnum2dwgnum(new_dwg_index): ", indexnum2dwgnum(new_dwg_index), type(indexnum2dwgnum(new_dwg_index)))
-        if int(k[column]) < 2009193:
-            k[column] = 'abort0'
-        elif (maxallowdwgno < int(k[column])):
+    # case 2: user enters what appears to be a legit dwg. no.:
+    elif column == 0 and  k[0].isdigit() and (k[0][:2] == '20') and (len(k[0]) >= 7):
+        proposedNewIndex = int(k[0][:4] + (9 % len(k[0]))*'0' + k[0][4:])
+        maxAllowedIndex = lastIndex + 50
+        if proposedNewIndex > maxAllowedIndex:
             k[column] = 'abort0_maxexceeded'
-               
+    # case 3: dwg. no. erased e.g. 104119, to get back program generated no., e.g. 2020867
+    elif column == 0 and k[0].strip() == '':
+        originalnum = True
+        k[0] = str(indexnum2dwgnum(currentIndex))
+    # case 4: program generated no. overwritten, e.g. 2020867 overwritten by 104119
     elif column == 0:
-        k[column] = 'abort0'  
+        overwrite = True
     elif column == 4:
         k[column] = k[column].lower()
                 
@@ -648,7 +658,9 @@ def cell_changed(k, clicked_text, column):
             return
         elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
             if k[column] == 'abort0_maxexceeded':
-                msg = 'Maximum allowed drawing number: ' + str(maxallowdwgno)
+                msg = ('The maximum allowable increase for a drawing number ' +
+                       'is 50.\n ' + str(indexnum2dwgnum(maxAllowedIndex)) + 
+                       ' is the max in this case.')
             else:
                 msg = 'Improper dwg. no.'
             msgbox = QMessageBox()
@@ -657,7 +669,6 @@ def cell_changed(k, clicked_text, column):
             msgbox.setText(msg)
             msgbox.exec_()
             return
-         
         # set up message box for user to verify update
         msgbox = QMessageBox()
         msgbox.setIcon(QMessageBox.Warning)
@@ -675,20 +686,30 @@ def cell_changed(k, clicked_text, column):
         if retval == QMessageBox.Cancel:
             userresponse = False
         elif retval == QMessageBox.Ok:
-            userresponse = True
-                   
+            userresponse = True       
         if userresponse == True:    
             conn = sqlite3.connect("dwglog2.db")
             c = conn.cursor()
-            if column == 0 and k[column] == 'delete':
+            if column == 0 and k[0] == 'delete':  # case 1, delete
                 sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
-            elif column == 0:
-                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                             + " = " + k[column] + " WHERE dwg = " + clicked_text)
+            elif column == 0 and originalnum == True:  # case 3, original
+                sqlUpdate = ('UPDATE dwgnos SET ' + 
+                             'dwg = ' + str(indexnum2dwgnum(currentIndex)) +
+                             ' WHERE dwg = "' + clicked_text + '"')
+            elif column == 0 and overwrite == True:  # case 4, overwrite
+                sqlUpdate = ('UPDATE dwgnos SET ' + 
+                            'dwg = "' + str(k[0]) +
+                            '" WHERE dwg_index = ' + str(currentIndex))
+            elif column == 0:  # case 2, legit no.
+                sqlUpdate = ('UPDATE dwgnos SET ' + 
+                             #colnames[0] + " = " + k[0] +
+                             colnames[0] + " = " + str(indexnum2dwgnum(proposedNewIndex)) +
+                             ', dwg_index =' + str(proposedNewIndex) +
+                             " WHERE dwg = " + clicked_text)
             else:
                 sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
                              + " = '" + k[column] + "' WHERE dwg = " + k[0])
-            result = c.execute(sqlUpdate)
+            c.execute(sqlUpdate)
             conn.commit()
             c.close()        
             conn.close() 
