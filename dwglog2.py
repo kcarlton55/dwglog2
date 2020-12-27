@@ -278,7 +278,7 @@ class AddDialog(QDialog):
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg DESC LIMIT 50")
+            self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
             result = self.c.fetchall()
             dwgno, part, new_dwg_index = generate_nos(result, part)
             self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
@@ -701,14 +701,15 @@ def cell_changed(k, clicked_text, column):
                             'dwg = "' + str(k[0]) +
                             '" WHERE dwg_index = ' + str(currentIndex))
             elif column == 0:  # case 2, legit no.
-                sqlUpdate = ('UPDATE dwgnos SET ' + 
+                sqlUpdate = ("UPDATE dwgnos SET " + 
                              #colnames[0] + " = " + k[0] +
                              colnames[0] + " = " + str(indexnum2dwgnum(proposedNewIndex)) +
-                             ', dwg_index =' + str(proposedNewIndex) +
+                             " , dwg_index =  " + str(proposedNewIndex) +
                              " WHERE dwg = " + clicked_text)
-            else:
-                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                             + " = '" + k[column] + "' WHERE dwg = " + k[0])
+                print('aaa\n', sqlUpdate)
+            #else:
+            #    sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
+            #                 + " = '" + k[column] + "' WHERE dwg = " + k[0])
             c.execute(sqlUpdate)
             conn.commit()
             c.close()        
