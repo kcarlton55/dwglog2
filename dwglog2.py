@@ -135,7 +135,7 @@ class MainWindow(QMainWindow):
         about_action = QAction(QIcon('icon/i1.png'), '&About', self) 
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
-        
+                
     def loaddata(self):
         self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.
         conn = sqlite3.connect('dwglog2.db')
@@ -234,7 +234,8 @@ class AddDialog(QDialog):
     '''
     def __init__(self, *args, **kwargs):
         super(AddDialog, self).__init__(*args, **kwargs)
-           
+        self.pndescriptions()
+        
         self.setWindowTitle('Insert Part Data')
         self.setFixedWidth(350)
         self.setFixedHeight(150)
@@ -244,6 +245,7 @@ class AddDialog(QDialog):
         self.partinput = QLineEdit()
         self.partinput.setPlaceholderText('Part No. (nos. like 0300- or 0300 will autofill)')
         self.partinput.setMaxLength(30)
+        self.partinput.textChanged.connect(self.textchanged)
         layout.addWidget(self.partinput)
                 
         self.descriptioninput = QLineEdit()
@@ -306,7 +308,33 @@ class AddDialog(QDialog):
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
+            
+    def pndescriptions(self):
+        self.pndescrip = {300:"BASEPLATE", 2704:"COVER PLATE", 2708:"ENDPLATE",
+            2724:"SHELL", 2728:"BRACKET", 2730:"BRACKET CTRL PNL",
+            2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
+            3420:"FLOW ORIFICE PLATE", 3510:"GASKET", 3700:"GUARD COUPLING",
+            3705:"GUARD FINGER", 3715:"GUARD V-BELT", 4010:"HT EX", 4715:"KIT",
+            4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK",
+            6004:"RECEIVER TANK VERT", 6005:"RECEIVER TANK VERT ASSY",
+            6006:"RCVR TANK VERT W/PLATFORM", 6008:"RCVR TANK HORZ GRASSHOPPER",
+            6050:"RISERBLOCK", 6405:"CONDENSATE TANK", 6410:"SEPARATOR FR", 
+            6415:"SEPARATOR FR", 6420:"SEPARATOR KO", 6425:"SEPARATOR NR", 
+            6430:"SEPARATOR ", 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD",
+            6825:"SUB ASSY INLET/DISCH MNFLD", 6830:"SUB ASSY INLET MANIFOLD",
+            6840:"SUB ASSY SEPARATOR", 6860:"SUB ASSY PUMP & MOTOR", 
+            6875:"SUB ASSY PIPING", 6882:"SUB ASSY KO TANK", 
+            6885:"SUB ASSY LEVEL SWITCH", 6886:"SUB ASSY V-BELT", 
+            6890:"SUB ASSY PIPING", 6891:"SUB ASSY 2ND STG OIL FILTER", 
+            7318:"VALVE CHK INLINE",}
         
+    def textchanged(self):
+         part = self.partinput.text()
+         if len(part) == 5 and part[:4].isdigit() and part[-1:] == '-': 
+             k = int(part[:4])
+             descrip = self.pndescrip[k] + ' '
+             self.descriptioninput.setText(descrip)
+             
         
 class SearchResults(QDialog): 
     ''' A dialog box to show search results based on a users search query.
