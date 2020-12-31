@@ -86,12 +86,9 @@ class MainWindow(QMainWindow):
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
         
-
         empty_label1 = QLabel()
         empty_label1.setText('   ')
         toolbar.addWidget(empty_label1)
-
-        
 
         self.radio_button_on = False
         self.radio_button = QRadioButton('AutoCopy')
@@ -99,8 +96,6 @@ class MainWindow(QMainWindow):
         self.radio_button.setStatusTip('Automatically copy contents of a clicked cell to the clipboard')
         self.radio_button.clicked.connect(self.check)
         toolbar.addWidget(self.radio_button)
-
-        
 
         empty_label2 = QLabel()
         empty_label2.setText('   ')
@@ -201,6 +196,8 @@ class MainWindow(QMainWindow):
             
             
 class AboutDialog(QDialog):
+    ''' Show company name, logo, program author, program creation date
+    '''
     def __init__(self, *args, **kwargs):
         super(AboutDialog, self).__init__(*args, **kwargs)
         
@@ -235,6 +232,8 @@ class AddDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super(AddDialog, self).__init__(*args, **kwargs)
         self.pndescriptions()
+        self.flag = False
+        self.descrip = ''
         
         self.setWindowTitle('Insert Part Data')
         self.setFixedWidth(350)
@@ -245,7 +244,7 @@ class AddDialog(QDialog):
         self.partinput = QLineEdit()
         self.partinput.setPlaceholderText('Part No. (nos. like 0300- or 0300 will autofill)')
         self.partinput.setMaxLength(30)
-        self.partinput.textChanged.connect(self.textchanged)
+        self.partinput.textChanged.connect(self.pntextchanged)
         layout.addWidget(self.partinput)
                 
         self.descriptioninput = QLineEdit()
@@ -266,11 +265,14 @@ class AddDialog(QDialog):
     def addpart(self):
         part = ""
         description = ""
-        author = "unknown"
         
         if os.getenv('USERNAME'):
             author = os.getenv('USERNAME')  # Works only on MS Windows
-            author.replace('_', '')         
+            author.replace('_', '') 
+        elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
+            author = 'kcarlton'
+        else:
+            author = 'unknown'
 
         part = self.partinput.text().upper().strip()
         description = self.descriptioninput.text().upper().strip()
@@ -309,33 +311,41 @@ class AddDialog(QDialog):
         except Exception:
             QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
             
-    def pndescriptions(self):
+    def pndescriptions(self):        
         self.pndescrip = {300:"BASEPLATE", 2704:"COVER PLATE", 2708:"ENDPLATE",
-            2724:"SHELL", 2728:"BRACKET", 2730:"BRACKET CTRL PNL",
+            2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET", 
+            2730:"BRACKET CTRL PNL height?Xwidth? CS",
             2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
-            3420:"FLOW ORIFICE PLATE", 3510:"GASKET", 3700:"GUARD COUPLING",
+            3420:'FLOW ORIFICE PLATE ??"ID', 
+            3510:'GASKET mtl? ??"OD X ??"ID X ??"THK', 3700:"GUARD COUPLING",
             3705:"GUARD FINGER", 3715:"GUARD V-BELT", 4010:"HT EX", 4715:"KIT",
-            4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK",
-            6004:"RECEIVER TANK VERT", 6005:"RECEIVER TANK VERT ASSY",
-            6006:"RCVR TANK VERT W/PLATFORM", 6008:"RCVR TANK HORZ GRASSHOPPER",
-            6050:"RISERBLOCK", 6405:"CONDENSATE TANK", 6410:"SEPARATOR FR", 
-            6415:"SEPARATOR FR", 6420:"SEPARATOR KO", 6425:"SEPARATOR NR", 
-            6430:"SEPARATOR ", 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD",
+            4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK HORZ ??? GAL CS",
+            6004:"RECEIVER TANK VERT ??? GAL CS", 6005:"RECEIVER TANK VERT ASSY ??? GAL CS",
+            6006:"RCVR TANK VERT W/PLATFORM ??? GAL CS", 
+            6008:"RCVR TANK HORZ GRASSHOPPER ??? GAL CS",
+            6050:"RISERBLOCK", 6405:"CONDENSATE TANK", 6410:'SEPARATOR OIL FR ??"OD CS', 
+            6415:'SEPARATOR FR ??"OD CS', 6420:"SEPARATOR KO", 6425:'SEPARATOR NR ??"OD CS', 
+            6430:'SEPARATOR NR/PR ??"OD CS', 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD",
             6825:"SUB ASSY INLET/DISCH MNFLD", 6830:"SUB ASSY INLET MANIFOLD",
-            6840:"SUB ASSY SEPARATOR", 6860:"SUB ASSY PUMP & MOTOR", 
-            6875:"SUB ASSY PIPING", 6882:"SUB ASSY KO TANK", 
+            6840:"SUB ASSY SEPARATOR", 6860:"SUB ASSY pump? ??HP MTR", 
+            6875:"SUB ASSY PIPING", 6882:'SUB ASSY KO TANK ?? GAL ??"OD CS', 
             6885:"SUB ASSY LEVEL SWITCH", 6886:"SUB ASSY V-BELT", 
-            6890:"SUB ASSY PIPING", 6891:"SUB ASSY 2ND STG OIL FILTER", 
+            6890:"SUB ASSY PIPING CS", 6891:"SUB ASSY 2ND STG OIL FILTER", 
             7318:"VALVE CHK INLINE",}
         
-    def textchanged(self):
+    def pntextchanged(self):
          part = self.partinput.text()
-         if len(part) == 5 and part[:4].isdigit() and part[-1:] == '-': 
-             k = int(part[:4])
-             descrip = self.pndescrip[k] + ' '
-             self.descriptioninput.setText(descrip)
-             
-        
+         desc = self.descriptioninput.text().strip()
+         if len(part) <= 3 and desc == self.descrip:  # if user put in his decrip, leave it
+             self.descriptioninput.setText("")
+         elif (len(part) == 4 and part.isdigit() and (int(part) in self.pndescrip)
+                 and (not desc  or desc == self.descrip.strip())):
+             self.descrip = self.pndescrip[int(part)]
+             self.descriptioninput.setText(self.descrip.strip()) 
+         elif (len(part) == 5 and part[-1:] != '-' and desc == self.descrip.strip()):
+             self.descriptioninput.setText("")
+         
+                     
 class SearchResults(QDialog): 
     ''' A dialog box to show search results based on a users search query.
     The results are shown in a table.  Note that any changes made to a cell
@@ -343,15 +353,7 @@ class SearchResults(QDialog):
     table is refreshed.
     '''   
     def __init__(self, found, searchterm, radio_button_on, parent=None):
-        super(SearchResults, self).__init__(parent)
-        
-        
-# =============================================================================
-#         addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
-#         addrefresh_action.setShortcut(QKeySequence.Refresh)
-#         addrefresh_action.triggered.connect(self.loaddata)
-# =============================================================================
-        
+        super(SearchResults, self).__init__(parent)        
         self.found = found
         self.searchterm = searchterm
         self.radio_button_on = radio_button_on
@@ -430,7 +432,6 @@ class SearchResults(QDialog):
             self.tableWidget.setRowCount(self.r_max)
             self.tableWidget.setHorizontalHeaderLabels(['Dwg No.', 'Part No.',
                                                 'Description', 'Date', 'Author'])
-    
             for r in range(self.r_max):
                 for c in range(self.c_max):
                     item = QTableWidgetItem(str(self.found[r][c]))
@@ -631,23 +632,36 @@ def cell_changed(k, clicked_text, column):
         k[column] = k[column].upper()
     elif column == 4 and isinstance(k[4], str):
         k[4] = k[column].lower()
+    #year = date.today().year
     overwrite = False
     originalnum = False
+    pnerr = False
+    #flag = False
     
     if column == 0:
         conn = sqlite3.connect('dwglog2.db')
         c = conn.cursor()
         c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
         result1 = c.fetchone()
-        c.execute("SELECT dwg_index FROM dwgnos WHERE dwg = '" + clicked_text + "'")
+        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + clicked_text + "'")
         result2 = c.fetchone()
         c.close()        
         conn.close()
         currentIndex = result2[0]
+        currentPN = result2[1]
         lastIndex = result1[0]
-    
     if column == 1:
         k[column] = k[column][:30]
+        lst = k[column].split('-')
+        # if pn looks to be in sync w/ dwg no., standard change notice to be shown.
+        # else if looks same except last digits, verify if this chqange really wanted.
+        # Note, 1st group of digits, i.e, 0300, 2730, etc. not taken into account
+        if ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
+                lst[1] == k[0][:4] and lst[2] == k[0][4:]):
+            pnerr = False
+        elif ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
+                lst[1] == k[0][:4]):
+            pnerr = True            
     elif column == 2:
         k[column] = k[column][:40]
     if column == 3 and k[column].count('/') == 2:  # date column
@@ -682,7 +696,6 @@ def cell_changed(k, clicked_text, column):
                 
     try:
         if k[column] == 'abort3':
-            #raise  Exception('improper date format')
             return
         elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
             if k[column] == 'abort0_maxexceeded':
@@ -691,26 +704,35 @@ def cell_changed(k, clicked_text, column):
                        ' is the max in this case.')
             else:
                 msg = 'Improper dwg. no.'
-            msgbox = QMessageBox()
-            msgbox.setIcon(QMessageBox.Warning)
-            msgbox.setWindowTitle('Error')
-            msgbox.setText(msg)
-            msgbox.exec_()
+            message(msg, 'Error', msgtype='Warning', showButtons=False)    
             return
-        # set up message box for user to verify update
-        msgbox = QMessageBox()
-        msgbox.setIcon(QMessageBox.Warning)
-        if k[column] == 'delete':
-            msgbox.setWindowTitle('Delete?')
+        elif k[column] == 'delete':
+            msgtitle = 'Delete?'
             msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
                     + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
-            msgbox.setText(msg)
+        elif overwrite == True:
+            msgtitle = 'Overwrite?'
+            msg = ('Warning: You are about to overwrite a standard drawing\n' +
+                   'number used at Dekker. If overwritten, to retrieve the\n' +
+                   'original number edit the drawing number field and leave it\n' +
+                   'blank.  Press Enter and the original number will reappear.\n' +
+                   'This is true even if you close the program and reopen it.')
+        elif pnerr == True:
+            msgtitle = 'Warning!'
+            msg = ('It looks like you are trying to enter a part no. that this\n' +
+                   'program would normally generate. Do you expect that the\n' +
+                   'drawing no. will update to be in sync with this part no.?\n' +
+                   '(e.g. dwg. no. 2020410 is in sync with pn 0300-2020-410.)\n' +
+                   'If so, you are taking the wrong approach.\n\n ' +
+                 
+                   'Instead change the drawing number.  The part number,\n' +
+                   'assuming it is currenly in sync with the drawing mumber, will  \n' +
+                   'automatically update to be in sync with the new drawing number.')
         else:
-            msgbox.setWindowTitle('Update?')
+            msgtitle = 'Update?'
             msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
-            msgbox.setText(msg)
-        msgbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
-        retval = msgbox.exec_()
+        retval = message(msg, msgtitle, msgtype='Warning', showButtons=True)
+        
         if retval == QMessageBox.Cancel:
             userresponse = False
         elif retval == QMessageBox.Ok:
@@ -731,13 +753,13 @@ def cell_changed(k, clicked_text, column):
             elif column == 0:  # case 2, legit no.
                 sqlUpdate = ("UPDATE dwgnos SET " + 
                              #colnames[0] + " = " + k[0] +
-                             colnames[0] + " = " + str(indexnum2dwgnum(proposedNewIndex)) +
-                             " , dwg_index =  " + str(proposedNewIndex) +
+                             "dwg = " + str(indexnum2dwgnum(proposedNewIndex)) +
+                             ", part = '" + updatePN(currentPN, currentIndex, proposedNewIndex) +
+                             "', dwg_index =  " + str(proposedNewIndex) +
                              " WHERE dwg = " + clicked_text)
-                print('aaa\n', sqlUpdate)
-            #else:
-            #    sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-            #                 + " = '" + k[column] + "' WHERE dwg = " + k[0])
+            else:
+                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
+                             + " = '" + k[column] + "' WHERE dwg = " + k[0])
             c.execute(sqlUpdate)
             conn.commit()
             c.close()        
@@ -745,15 +767,43 @@ def cell_changed(k, clicked_text, column):
             
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
-        QMessageBox.warning(QMessageBox(), 'Error', errmsg)
+        message(errmsg, 'Error')
     except Exception as er:
         if er.args:
             QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
         else:
-            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')            
+            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')  
+            
+            
+def message(msg, msgtitle, msgtype='Warning', showButtons=False):
+    msgbox = QMessageBox()
+    if msgtype == 'Warning':
+        msgbox.setIcon(QMessageBox.Warning)
+    msgbox.setWindowTitle(msgtitle)
+    msgbox.setText(msg)
+    if showButtons:
+        msgbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+    retval = msgbox.exec_()
+    return retval            
 
             
 def indexnum2dwgnum(dwg_index):
+    ''' A number from the column named dwg_index looks something like
+    202000873.  From that number make it a suitable number to fit into
+    the column named dwg.  So in this case the suitable number to apply is
+    2020873.  Another example: for 202100034 the dwg no. would be 2021034 
+
+    Parameters
+    ----------
+    dwg_index : int
+        Number from the column name "dwg_index".  This column is hidden to
+        the user.  It resides in the database file dwglog2.db.
+
+    Returns
+    -------
+    int
+        A new drawing number to place a a Dekker drawing.
+    '''
     chrs = str(dwg_index)[4:]
     whittled = chrs    
     for x in chrs:                       # whittle off leading zeros
@@ -763,6 +813,41 @@ def indexnum2dwgnum(dwg_index):
             break
     whittled = whittled.zfill(3)      # e.g. "5" to "005", or "13" to "013"
     return int(str(dwg_index)[:4] + whittled)
+
+
+def updatePN(oldpn, oldindexNo, newIndexNo):
+    ''' If the user changes the drawing no. from, for example, 2020876 to 
+    2020925, and the part no. is 0300-2020-876, the part no. should change to 
+    0300-2020-925.  On the other hand if, for example, the part no. is 
+    6100-0100-315, that is it doesn't have a program generated number, the 
+    part no. should be left as 6100-0100-315.
+    
+    Parameters
+    ----------
+    pn : str
+        orignal part no., from column "part"
+    dwgNo : str
+        original drawing no., from column "dwg"
+    indexNo : int
+        original index no., from column "dwg_index"
+    newIndexNo : int
+        The new index no. that the user is establishing.
+
+    Returns
+    -------
+    str
+       New pn if it was originally based on indexNo. Otherwise return return
+       the original pn
+    '''
+    d = indexnum2dwgnum(oldindexNo)  # old dwgNo derived from oldindexNo
+    p = str(oldpn)[:4] + '-' + str(d)[:4] + '-' + str(d)[4:]   # pn if it were generated from oldindexNo
+    
+    if p == oldpn:  # that is, is oldpn what would have been generated, like 0300-2020-876?
+        d2 = indexnum2dwgnum(newIndexNo)
+        newpn = str(oldpn)[:4] + '-' + str(d2)[:4] + '-' + str(d2)[4:]
+        return newpn
+    else:
+        return oldpn
            
                     
 app = QApplication(sys.argv)
