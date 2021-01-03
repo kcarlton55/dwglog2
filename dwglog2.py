@@ -15,7 +15,7 @@ associated part numbers, part discriptions, drawing dates, and drawing authors.
 from PyQt5.QtCore import Qt 
 from PyQt5.QtWidgets import (QTableWidget, QMainWindow, QDialog, QApplication,
                              QToolBar, QStatusBar, QAction, QLabel, QLineEdit,
-                             QTableWidgetItem, QVBoxLayout, QPushButton,
+                             QTableWidgetItem, QVBoxLayout, QPushButton, QComboBox,
                              QHBoxLayout, QMessageBox, QDialogButtonBox, QRadioButton)
 from PyQt5.QtGui import QIcon, QKeySequence, QPixmap
 import sys
@@ -241,12 +241,25 @@ class AddDialog(QDialog):
         
         layout = QVBoxLayout()
         
-        self.partinput = QLineEdit()
-        self.partinput.setPlaceholderText('Part No. (nos. like 0300- or 0300 will autofill)')
-        self.partinput.setMaxLength(30)
-        self.partinput.textChanged.connect(self.pntextchanged)
-        layout.addWidget(self.partinput)
+# =============================================================================
+#         self.partinput = QLineEdit()
+#         self.partinput.setPlaceholderText('Part No. (nos. like 0300- or 0300 will autofill)')
+#         self.partinput.setMaxLength(30)
+#         self.partinput.textChanged.connect(self.pntextchanged)
+#         layout.addWidget(self.partinput)
+# =============================================================================
                 
+        self.partinput = QComboBox()
+        self.partinput.setEditable(True)
+        self.partinput.addItems(["0300-", "2202-", "2223-", "2724-", "2273-", 
+                                 "2277-", "2728-", "2730-", "6050-", "6415-",
+                                 "6820-", "6830-", "6875-", "6890-"])
+        self.partinput.setCurrentIndex(-1)
+        self.partinput.setCurrentText("Part No.")
+        self.partinput.view().setMinimumHeight(220)
+        self.partinput.currentTextChanged.connect(self.pntextchanged)
+        layout.addWidget(self.partinput)
+        
         self.descriptioninput = QLineEdit()
         self.descriptioninput.setPlaceholderText('Description')
         self.descriptioninput.setMaxLength(40)
@@ -263,7 +276,7 @@ class AddDialog(QDialog):
         self.setLayout(layout)
 
     def addpart(self):
-        part = ""
+        #part = ""
         description = ""
         
         if os.getenv('USERNAME'):
@@ -274,7 +287,7 @@ class AddDialog(QDialog):
         else:
             author = 'unknown'
 
-        part = self.partinput.text().upper().strip()
+        #part = self.partinput.text().upper().strip()    #---
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%m/%d/%Y")
@@ -283,19 +296,19 @@ class AddDialog(QDialog):
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
             self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
-            result = self.c.fetchall()
-            dwgno, part, new_dwg_index = generate_nos(result, part)
+            result = self.c.fetchall()            
+            dwgno, self.part, new_dwg_index = generate_nos(result, self.part)   #---
             self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, part, description, _date, author))
+                           (new_dwg_index, dwgno, self.part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
             self.close()
         except TypeError:
             year = date.today().year
-            dwgno, part, new_dwg_index  = year*1000, 'Invalid part no.'
+            dwgno, self.part, new_dwg_index  = year*1000, 'Invalid part no.'
             self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, part, description, _date, author))
+                           (new_dwg_index, dwgno, self.part, description, _date, author))
             self.conn.commit()
             self.c.close()
             self.conn.close()
@@ -308,11 +321,16 @@ class AddDialog(QDialog):
         except sqlite3.Error as er:
             errmsg = 'SQLite error: %s' % (' '.join(er.args))
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
-        except Exception:
-            QMessageBox.warning(QMessageBox(), 'Error', 'Could not add pt no. to the database')
+        except Exception as er:
+            errmsg = 'Error: %s' % (' '.join(er.args))
+            QMessageBox.warning(QMessageBox(), 'Error', errmsg)
             
     def pndescriptions(self):        
-        self.pndescrip = {300:"BASEPLATE", 2704:"COVER PLATE", 2708:"ENDPLATE",
+        self.pndescrip = {300:"BASEPLATE", 2202:'CTRL/LAYOUT PNL ??HP ???V', 
+            2223:'CTRL/LAYOUT PNL ??HP ???V', 2250:'CTRL/LAYOUT PNL ??HP ???V', 
+            2273:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK',
+            2277:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK', 
+            2451:'PLACARD SET', 2704:"COVER PLATE", 2708:"ENDPLATE",
             2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET", 
             2730:"BRACKET CTRL PNL height?Xwidth? CS",
             2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
@@ -333,17 +351,38 @@ class AddDialog(QDialog):
             6890:"SUB ASSY PIPING CS", 6891:"SUB ASSY 2ND STG OIL FILTER", 
             7318:"VALVE CHK INLINE",}
         
-    def pntextchanged(self):
-         part = self.partinput.text()
-         desc = self.descriptioninput.text().strip()
-         if len(part) <= 3 and desc == self.descrip:  # if user put in his decrip, leave it
-             self.descriptioninput.setText("")
-         elif (len(part) == 4 and part.isdigit() and (int(part) in self.pndescrip)
-                 and (not desc  or desc == self.descrip.strip())):
-             self.descrip = self.pndescrip[int(part)]
-             self.descriptioninput.setText(self.descrip.strip()) 
-         elif (len(part) == 5 and part[-1:] != '-' and desc == self.descrip.strip()):
-             self.descriptioninput.setText("")
+    def pntextchanged(self, part):
+        ''' Generate a part's description based on the part no. that the user
+        provides.  This description will show in the description field.  The
+        user then will be alter this description as he pleases.  At least the 
+        first four characters of the part no., all digits, need to be provided.
+        If the fifth character is not a dash, -, the description field will
+        be cleared.
+        
+        Parameters
+        ----------
+        part : str
+            e.g. 0300-, 0300-2020-400, etc.
+
+        Returns
+        -------
+        None.
+
+        '''
+        self.part = part
+        desc = self.descriptioninput.text().strip()
+        if len(part) <= 3 and desc == self.descrip:  # if user put in his decrip, leave it
+            self.descriptioninput.setText("")
+        elif (len(part) == 4 and part.isdigit() and (int(part) in self.pndescrip)
+                and (not desc  or desc == self.descrip.strip())):
+            self.descrip = self.pndescrip[int(part[:4])]
+            self.descriptioninput.setText(self.descrip.strip()) 
+        elif (len(part) == 5 and part[:4].isdigit() and (int(part[:4]) in self.pndescrip)
+                and (not desc  or desc == self.descrip.strip())):
+            self.descrip = self.pndescrip[int(part[:4])]
+            self.descriptioninput.setText(self.descrip.strip())     
+        if (len(part) == 5 and part[-1:] != '-' and desc == self.descrip.strip()):
+            self.descriptioninput.setText("")
          
                      
 class SearchResults(QDialog): 
@@ -531,6 +570,8 @@ def generate_nos(dwg_indexes, partNo):
         dwgNo = int(str(year) + whittled)
     else:
         dwgNo = year*1000 + 1  # if no ints in list, then is 1st dwg no. for a new year
+        d = str(dwgNo)
+        new_dwg_index = int(d[:4] + (9 % len(d))*'0' + d[4:])
     if ((partNo.isnumeric() and len(partNo) == 4) or
            (len(partNo) == 5 and partNo[:4].isnumeric() and partNo[-1] == '-')):
         partNo = partNo[:4] + '-' + str(year) + '-' + str(dwgNo)[4:]
@@ -651,17 +692,40 @@ def cell_changed(k, clicked_text, column):
         currentPN = result2[1]
         lastIndex = result1[0]
     if column == 1:
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + k[0] + "'")
+        result3 = c.fetchone()
+        c.close()        
+        conn.close()
+        currentIndex = result3[0]
+        
         k[column] = k[column][:30]
         lst = k[column].split('-')
+        lst2 = clicked_text.split('-')
+        dg = str(indexnum2dwgnum(currentIndex))
+            
         # if pn looks to be in sync w/ dwg no., standard change notice to be shown.
         # else if looks same except last digits, verify if this chqange really wanted.
         # Note, 1st group of digits, i.e, 0300, 2730, etc. not taken into account
-        if ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
-                lst[1] == k[0][:4] and lst[2] == k[0][4:]):
+        if ('-' in k[1] and k[1].count('-') == 2 and len(lst) == 3 and
+                all(lst) and lst[1] == dg[:4] and lst[2] == dg[4:]):
             pnerr = False
+        # user in inadvertantly trying to change the dwg no. by changing the pn
         elif ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
-                lst[1] == k[0][:4]):
-            pnerr = True            
+                all(lst) and lst[1] == dg[:4] and lst[2] != dg[4:]):
+            pnerr = True 
+        # if cell left empty, attempt to fill with a "syncronized" pn,
+        # like 0300-2020-421 for dwgno 2020421
+        elif (not k[1].strip() and '-' in clicked_text and 
+                  clicked_text.count('-') == 2  and len(lst2) == 3 and all(lst2)):
+            k[1] = lst2[0] + '-' + dg[:4] + '-' + dg[4:] 
+        # if cell has 5 characters, like '0300-', fill in with synced pt. no.
+        elif (len(k[1]) == 5 and k[1].endswith('-')):
+            k[1] = k[1] + dg[:4] + '-' + dg[4:]
+        # if cell has 10 characters, like '0300-2020', fill in with synced pt. no.
+        elif (len(k[1]) == 10 and k[1].endswith('-') and k[1][5:9] == dg[:4]):
+            k[1] = k[1] + k[0][4:]
     elif column == 2:
         k[column] = k[column][:40]
     if column == 3 and k[column].count('/') == 2:  # date column
@@ -693,7 +757,7 @@ def cell_changed(k, clicked_text, column):
         overwrite = True
     elif column == 4:
         k[column] = k[column].lower()
-                
+        
     try:
         if k[column] == 'abort3':
             return
