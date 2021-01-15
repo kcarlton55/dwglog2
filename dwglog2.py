@@ -1,4 +1,6 @@
 
+
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -201,7 +203,7 @@ class AboutDialog(QDialog):
     def __init__(self, *args, **kwargs):
         super(AboutDialog, self).__init__(*args, **kwargs)
         
-        self.setFixedHeight(250)
+        self.setFixedHeight(300)
         
         QBtn = QDialogButtonBox.Ok
         self.buttonBox = QDialogButtonBox(QBtn)
@@ -213,14 +215,16 @@ class AboutDialog(QDialog):
         self.setWindowTitle('About')
         
         labelpic = QLabel()
-        pixmap = QPixmap('icon/dekker_logo.png')
-        pixmap = pixmap.scaledToWidth(275)  # was 275
+        pixmap = QPixmap('icon/DekkerLogo.png')
+        #pixmap = pixmap.scaledToWidth(275)  # was 275
         labelpic.setPixmap(pixmap)
         labelpic.setFixedHeight(150)        # was 150
     
         layout.addWidget(labelpic)
-        layout.addWidget(QLabel('Program name: dwglog2, version: ' + __version__ + '\n'
-                                + 'Written by: Ken Carlton, December 1, 2020'))
+        layout.addWidget(QLabel('dwglog2, version ' + __version__ + '\n\n' +
+                                'The drawing no. generator for\n' +
+                                'Dekker Vacuum Technologies, Inc.\n\n' +
+                                'Written by Ken Carlton, December 1, 2020'))
         layout.addWidget(self.buttonBox)
         self.setLayout(layout)
         
@@ -231,15 +235,16 @@ class AddDialog(QDialog):
     '''
     def __init__(self, *args, **kwargs):
         super(AddDialog, self).__init__(*args, **kwargs)
-        self.pndescriptions()
+        #self.pndescriptions()
         self.flag = False
         self.descrip = ''
+        self.part = ''
         
         self.setWindowTitle('Insert Part Data')
         self.setFixedWidth(350)
         self.setFixedHeight(150)
         
-        layout = QVBoxLayout()
+       
         
 # =============================================================================
 #         self.partinput = QLineEdit()
@@ -248,7 +253,12 @@ class AddDialog(QDialog):
 #         self.partinput.textChanged.connect(self.pntextchanged)
 #         layout.addWidget(self.partinput)
 # =============================================================================
-                
+        
+
+        
+        
+        layout = QVBoxLayout()
+
         self.partinput = QComboBox()
         self.partinput.setEditable(True)
         self.partinput.addItems(["0300-", "2202-", "2223-", "2724-", "2273-", 
@@ -264,6 +274,7 @@ class AddDialog(QDialog):
         self.descriptioninput.setPlaceholderText('Description')
         self.descriptioninput.setMaxLength(40)
         layout.addWidget(self.descriptioninput)
+        
                         
         self.QBtn = QPushButton('text-align:center')
         self.QBtn.setText("OK")
@@ -273,7 +284,9 @@ class AddDialog(QDialog):
         hbox = QHBoxLayout()
         hbox.addWidget(self.QBtn)
         layout.addLayout(hbox)
-        self.setLayout(layout)
+        self.setLayout(layout) 
+
+        
 
     def addpart(self):
         #part = ""
@@ -291,13 +304,12 @@ class AddDialog(QDialog):
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%m/%d/%Y")
-        
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
             self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
             result = self.c.fetchall()            
-            dwgno, self.part, new_dwg_index = generate_nos(result, self.part)   #---
+            dwgno, self.part, new_dwg_index = generate_nos(result, self.part)
             self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
                            (new_dwg_index, dwgno, self.part, description, _date, author))
             self.conn.commit()
@@ -324,33 +336,7 @@ class AddDialog(QDialog):
         except Exception as er:
             errmsg = 'Error: %s' % (' '.join(er.args))
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
-            
-    def pndescriptions(self):        
-        self.pndescrip = {300:"BASEPLATE", 2202:'CTRL/LAYOUT PNL ??HP ???V', 
-            2223:'CTRL/LAYOUT PNL ??HP ???V', 2250:'CTRL/LAYOUT PNL ??HP ???V', 
-            2273:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK',
-            2277:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK', 
-            2451:'PLACARD SET', 2704:"COVER PLATE", 2708:"ENDPLATE",
-            2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET", 
-            2730:"BRACKET CTRL PNL height?Xwidth? CS",
-            2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
-            3420:'FLOW ORIFICE PLATE ??"ID', 
-            3510:'GASKET mtl? ??"OD X ??"ID X ??"THK', 3700:"GUARD COUPLING",
-            3705:"GUARD FINGER", 3715:"GUARD V-BELT", 4010:"HT EX", 4715:"KIT",
-            4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK HORZ ??? GAL CS",
-            6004:"RECEIVER TANK VERT ??? GAL CS", 6005:"RECEIVER TANK VERT ASSY ??? GAL CS",
-            6006:"RCVR TANK VERT W/PLATFORM ??? GAL CS", 
-            6008:"RCVR TANK HORZ GRASSHOPPER ??? GAL CS",
-            6050:"RISERBLOCK", 6405:"CONDENSATE TANK", 6410:'SEPARATOR OIL FR ??"OD CS', 
-            6415:'SEPARATOR FR ??"OD CS', 6420:"SEPARATOR KO", 6425:'SEPARATOR NR ??"OD CS', 
-            6430:'SEPARATOR NR/PR ??"OD CS', 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD",
-            6825:"SUB ASSY INLET/DISCH MNFLD", 6830:"SUB ASSY INLET MANIFOLD",
-            6840:"SUB ASSY SEPARATOR", 6860:"SUB ASSY pump? ??HP MTR", 
-            6875:"SUB ASSY PIPING", 6882:'SUB ASSY KO TANK ?? GAL ??"OD CS', 
-            6885:"SUB ASSY LEVEL SWITCH", 6886:"SUB ASSY V-BELT", 
-            6890:"SUB ASSY PIPING CS", 6891:"SUB ASSY 2ND STG OIL FILTER", 
-            7318:"VALVE CHK INLINE",}
-        
+                    
     def pntextchanged(self, part):
         ''' Generate a part's description based on the part no. that the user
         provides.  This description will show in the description field.  The
@@ -373,17 +359,17 @@ class AddDialog(QDialog):
         desc = self.descriptioninput.text().strip()
         if len(part) <= 3 and desc == self.descrip:  # if user put in his decrip, leave it
             self.descriptioninput.setText("")
-        elif (len(part) == 4 and part.isdigit() and (int(part) in self.pndescrip)
+        elif (len(part) == 4 and part.isdigit() and (int(part) in pndescrip)
                 and (not desc  or desc == self.descrip.strip())):
-            self.descrip = self.pndescrip[int(part[:4])]
+            self.descrip = pndescrip[int(part[:4])]
             self.descriptioninput.setText(self.descrip.strip()) 
-        elif (len(part) == 5 and part[:4].isdigit() and (int(part[:4]) in self.pndescrip)
+        elif (len(part) == 5 and part[:4].isdigit() and (int(part[:4]) in pndescrip)
                 and (not desc  or desc == self.descrip.strip())):
-            self.descrip = self.pndescrip[int(part[:4])]
+            self.descrip = pndescrip[int(part[:4])]
             self.descriptioninput.setText(self.descrip.strip())     
         if (len(part) == 5 and part[-1:] != '-' and desc == self.descrip.strip()):
             self.descriptioninput.setText("")
-         
+   
                      
 class SearchResults(QDialog): 
     ''' A dialog box to show search results based on a users search query.
@@ -609,8 +595,8 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
         searchlistchild = searchtermchild.split(';')
         searchlistchild = [x.strip() for x in searchlistchild]
         for i in searchlistchild:
-            sqlSelect +=  '''(part GLOB '{0}' OR description GLOB '{0}'
-                              OR author GLOB '{0}' OR dwg GLOB '{0}'
+            sqlSelect +=  '''(dwg GLOB '{0}' OR part GLOB '{0}' OR description GLOB '{0}'
+                              OR author GLOB '{0}'
                               OR date GLOB '{0}') AND '''.format(i)
         sqlSelect = sqlSelect[:-5] + ') OR ('   
     sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg_index DESC'        
@@ -634,6 +620,233 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
         msgbox.exec_()
         
 
+def DELETE_Me_cell_changed(k, clicked_text, column):
+    ''' This function is called if a table cell has changed, whether in the
+    table of the MainWindow or in a table in a SearchResults window.  The 
+    appropriatness of the change and how the change is handled depends on in 
+    what column the change is made in.  For example, if a user enters a value 
+    in a cell meant for a date, and the format of the text for that date is not
+    appropriate, the change will not be allowed.
+    
+    If the change is deemed acceptable, a change verification dialog is shown
+    to the user.  If the user clicks OK to verify the change, the sqlite 
+    dwglog2.db database is updated.
+    
+    Parameters
+    ----------
+    k: dictionary
+        The dicionary has keys named 0, 1, 2, 3, and 4.  The values
+        corresponding to these keys are text in columns 0 (dwg no.), 
+        1 (part no.), 2 (description), 3 (date), and 4 (author); these 
+        corresponding to the row that contains the cell that has changed.  
+    clicked_text: str
+        The original text that was in the cell that has been changed to 
+        contain the updated text.
+    column: int
+        The column in which the change occurred: 0, 1, 2, 3, or 4
+        (corresponding to the columns dwg, part, description, date, or author).
+        (Note that this "cell_changed" function knows to which table row to
+        apply the change to because k[0] of the dictionary contains the drawing
+        number, and this number is unique in the table.)
+
+    Returns
+    -------
+    None.  (The dwglog2.db database is updated.)
+
+    '''
+    colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
+    
+    print('aaa')
+    print('column: ', column, type(k[column]))
+    
+    if column in [0, 1, 2, 3] and isinstance(k[column], str):
+        k[column] = k[column].upper()
+    elif column == 4 and isinstance(k[4], str):
+        k[4] = k[column].lower()
+    #year = date.today().year
+    overwrite = False
+    originalnum = False
+    pnerr = False
+    pnWillChgWithDwgNo = False
+    #flag = False
+    
+    if column == 0:
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
+        result1 = c.fetchone()
+        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + clicked_text + "'")
+        result2 = c.fetchone()
+        c.close()        
+        conn.close()
+        currentIndex = result2[0]
+        currentPN = result2[1]
+        lastIndex = result1[0]
+    if column == 1:
+        conn = sqlite3.connect('dwglog2.db')
+        c = conn.cursor()
+        c.execute("SELECT dwg_index, part, description FROM dwgnos WHERE dwg = '" + k[0] + "'")
+        result3 = c.fetchone()
+        c.close()        
+        conn.close()
+        currentIndex = result3[0]
+        currentDescrip = result3[2]
+        currentPart = result3[1]
+        k[column] = k[column][:30]
+        lst = k[column].split('-')
+        lst2 = clicked_text.split('-')
+        dg = str(indexnum2dwgnum(currentIndex))
+            
+        # if pn looks to be in sync w/ dwg no., standard change notice to be shown.
+        # else if looks same except last digits, verify if this chqange really wanted.
+        # Note, 1st group of digits, i.e, 0300, 2730, etc. not taken into account
+        if ('-' in k[1] and k[1].count('-') == 2 and len(lst) == 3 and
+                all(lst) and lst[1] == dg[:4] and lst[2] == dg[4:]):
+            pnerr = False
+        # user in inadvertantly trying to change the dwg no. by changing the pn
+        elif ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
+                all(lst) and lst[1] == dg[:4] and lst[2] != dg[4:]):
+            pnerr = True 
+        # if cell left empty, attempt to fill with a "syncronized" pn,
+        # like 0300-2020-421 for dwgno 2020421
+        elif (not k[1].strip() and '-' in clicked_text and 
+                  clicked_text.count('-') == 2  and len(lst2) == 3 and all(lst2)):
+            k[1] = lst2[0] + '-' + dg[:4] + '-' + dg[4:] 
+        # if cell has 5 characters, like '0300-', fill in with synced pt. no.
+        elif (len(k[1]) == 5 and k[1].endswith('-')):
+            k[1] = k[1] + dg[:4] + '-' + dg[4:]
+        # if cell has 10 characters, like '0300-2020', fill in with synced pt. no.
+        elif (len(k[1]) == 10 and k[1].endswith('-') and k[1][5:9] == dg[:4]):
+            k[1] = k[1] + k[0][4:]
+            
+        if (not currentDescrip.strip() and len(k[1]) >= 13 and k[1][4] == '-'
+            and  int(k[1][:4]) in pndescrip):
+            k[2] = pndescrip[int(k[1][:4])]
+    elif column == 2:
+        k[column] = k[column][:40]
+    if column == 3 and k[column].count('/') == 2:  # date column
+        j = k[column].split('/')
+        if (all(i.isdigit() for i in j)
+                and (1 <= int(j[0]) <= 12)
+                and (1 <= int(j[1]) <= 31)
+                and (1998 <= int(j[2]) <= 2099)):
+            k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
+        else:
+            k[column] = 'abort3'
+    elif column == 3:
+        k[column] = 'abort3'
+    # case 1: delete a record:    
+    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm'):
+        k[column] = 'delete'
+    # case 2: user enters what appears to be a legit dwg. no.:
+    elif column == 0 and  k[0].isdigit() and (k[0][:2] == '20') and (len(k[0]) >= 7):
+        proposedNewIndex = int(k[0][:4] + (9 % len(k[0]))*'0' + k[0][4:])
+        
+        if currentPN != updatePN(currentPN, currentIndex, proposedNewIndex):
+            pnWillChgWithDwgNo = True
+
+        maxAllowedIndex = lastIndex + 50
+        if proposedNewIndex > maxAllowedIndex:
+            k[column] = 'abort0_maxexceeded'
+    # case 3: dwg. no. erased e.g. 104119, to get back program generated no., e.g. 2020867
+    elif column == 0 and k[0].strip() == '':
+        originalnum = True
+        k[0] = str(indexnum2dwgnum(currentIndex))
+    # case 4: program generated no. overwritten, e.g. 2020867 overwritten by 104119
+    elif column == 0:
+        overwrite = True
+    elif column == 4:
+        k[column] = k[column].lower()
+        
+    try:
+        if k[column] == 'abort3':
+            return
+        elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
+            if k[column] == 'abort0_maxexceeded':
+                msg = ('The maximum allowable increase for a drawing number ' +
+                       'is 50.\n ' + str(indexnum2dwgnum(maxAllowedIndex)) + 
+                       ' is the max in this case.')
+            else:
+                msg = 'Improper dwg. no.'
+            message(msg, 'Error', msgtype='Warning', showButtons=False)    
+            return
+        elif k[column] == 'delete':
+            msgtitle = 'Delete?'
+            msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
+                    + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
+        elif overwrite == True:
+            msgtitle = 'Overwrite?'
+            msg = ('Warning: You are about to OVERWRITE a standard drawing number.\n' +
+                   'If overwritten, to retrieve the original number edit the drawing\n' +
+                   'number field and leave it blank. Then Press Enter.')
+        elif pnerr == True:
+            msgtitle = 'Warning!'
+            msg = ('It looks like you are trying to enter a part no. that this\n' +
+                   'program would normally generate. Do you expect that the\n' +
+                   'drawing no. will update to be in sync with this part no.?\n' +
+                   '(e.g. dwg. no. 2020410 is in sync with pn 0300-2020-410.)\n' +
+                   'If so, you are taking the wrong approach.\n\n ' +
+                 
+                   'Instead change the drawing number.  The part number,\n' +
+                   'assuming it is currenly in sync with the drawing mumber, will  \n' +
+                   'automatically update to be in sync with the new drawing number.')
+        elif pnWillChgWithDwgNo:
+            msgtitle = 'Update?'
+            msg =  ('from: ' +  clicked_text + '\nto:     ' + k[column])
+            msg += ('\n            and,  \n')
+            msg += ('from: ' +  currentPN  + '\nto:     '  + updatePN(currentPN, currentIndex, proposedNewIndex))
+        else:
+            msgtitle = 'Update?'
+            msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
+        retval = message(msg, msgtitle, msgtype='Warning', showButtons=True)
+        
+        if retval == QMessageBox.Cancel:
+            userresponse = False
+        elif retval == QMessageBox.Ok:
+            userresponse = True       
+        if userresponse == True:    
+            conn = sqlite3.connect("dwglog2.db")
+            c = conn.cursor()
+            if column == 0 and k[0] == 'delete':  # case 1, delete
+                sqlUpdate = "DELETE from dwgnos WHERE dwg = '" + clicked_text + "'"
+            elif column == 0 and originalnum == True:  # case 3, original
+                sqlUpdate = ("UPDATE dwgnos SET " + 
+                             "dwg = '" + str(indexnum2dwgnum(currentIndex)) +
+                             "' WHERE dwg = '" + clicked_text + "'")
+            elif column == 0 and overwrite == True:  # case 4, overwrite
+                sqlUpdate = ("UPDATE dwgnos SET " + 
+                            "dwg = '" + str(k[0]) +
+                            "' WHERE dwg_index = " + str(currentIndex))
+            elif column == 0:  # case 2, legit no.
+                sqlUpdate = ("UPDATE dwgnos SET " + 
+                             #colnames[0] + " = " + k[0] +
+                             "dwg = '" + str(indexnum2dwgnum(proposedNewIndex)) +
+                             "', part = '" + updatePN(currentPN, currentIndex, proposedNewIndex) +
+                             "', dwg_index =  " + str(proposedNewIndex) +
+                             " WHERE dwg = '" + clicked_text + "'")
+            elif column == 1:
+                sqlUpdate = ("UPDATE dwgnos SET " + colnames[column] 
+                             + " = '" + k[column] + "', description = '" + k[2] + 
+                             "' WHERE dwg = '" + k[0] + "'")
+            else:
+                sqlUpdate = ("UPDATE dwgnos SET " + colnames[column] 
+                             + " = '" + k[column] + "' WHERE dwg = '" + k[0] + "'")
+
+            c.execute(sqlUpdate)
+            conn.commit()
+            c.close()        
+            conn.close() 
+            
+    except sqlite3.Error as er:
+        errmsg = 'SQLite error: %s' % (' '.join(er.args))
+        message(errmsg, 'Error')
+    except Exception as er:
+        if er.args:
+            QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
+        else:
+            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated') 
+            
+            
 def cell_changed(k, clicked_text, column):
     ''' This function is called if a table cell has changed, whether in the
     table of the MainWindow or in a table in a SearchResults window.  The 
@@ -669,42 +882,67 @@ def cell_changed(k, clicked_text, column):
 
     '''
     colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
-    if column in [0, 1, 2, 3] and isinstance(k[column], str):
+    if column in [0, 1, 2, 3]:
         k[column] = k[column].upper()
-    elif column == 4 and isinstance(k[4], str):
+    elif column == 4:
         k[4] = k[column].lower()
-    #year = date.today().year
     overwrite = False
     originalnum = False
     pnerr = False
-    #flag = False
+    pnWillChgWithDwgNo = False
+    showConfirmationMsg = True
     
-    if column == 0:
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
-        result1 = c.fetchone()
-        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + clicked_text + "'")
-        result2 = c.fetchone()
-        c.close()        
-        conn.close()
-        currentIndex = result2[0]
-        currentPN = result2[1]
-        lastIndex = result1[0]
-    if column == 1:
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + k[0] + "'")
-        result3 = c.fetchone()
-        c.close()        
-        conn.close()
-        currentIndex = result3[0]
-        
-        k[column] = k[column][:30]
-        lst = k[column].split('-')
+    # === preliminary setup... need some data from the database 
+    try:
+        if column <= 1:
+            conn = sqlite3.connect('dwglog2.db')
+            c = conn.cursor()
+        if column == 0:
+            c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
+            result = c.fetchone()
+            lastIndex = result[0]
+            c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + clicked_text + "'")
+            result = c.fetchone()
+            currentIndex = result[0]
+            currentPN = result[1]
+        elif column == 1:
+            c.execute("SELECT dwg_index, part, description FROM dwgnos WHERE dwg = '" + k[0] + "'")
+            result = c.fetchone()
+            currentIndex = result[0]
+            currentDescrip = result[2]
+            currentPN = result[1]      # name was currentPart
+        if column <= 1:
+            c.close()        
+            conn.close()
+    except sqlite3.Error as er:
+        errmsg = 'SQLite error: %s' % (' '.join(er.args))
+        message(errmsg, 'Error')
+ 
+    # === analyze column input to determine what should happen
+    # case 1: delete a record:        
+    if column == 0 and k[0].lower() in ('delete', 'remove', 'del', 'rm'):
+        k[0] = 'delete'
+    # case 2: user enters what appears to be a legit dwg. no.:
+    elif column == 0 and  k[0].isdigit() and (k[0][:2] == '20') and (len(k[0]) >= 7):
+        proposedNewIndex = int(k[0][:4] + (9 % len(k[0]))*'0' + k[0][4:])
+        # Is currentPN in sync w/ dwg no. which will allow to update to a new PN?  
+        if currentPN != updatePN(currentPN, currentIndex, proposedNewIndex):
+            pnWillChgWithDwgNo = True
+        maxAllowedIndex = lastIndex + 50
+        if proposedNewIndex > maxAllowedIndex:
+            k[0] = 'abort0_maxexceeded' 
+    # case 3: dwg. no. erased e.g. 104119, to get back program generated no., e.g. 2020867
+    elif column == 0 and k[0].strip() == '':
+        originalnum = True
+        k[0] = str(indexnum2dwgnum(currentIndex))
+    # case 4: program generated no. overwritten, e.g. 2020867 overwritten by 104119
+    elif column == 0:
+        overwrite = True
+    elif column == 1:  # column containing the pn
+        k[1] = k[1][:30]
+        lst = k[1].split('-')
         lst2 = clicked_text.split('-')
         dg = str(indexnum2dwgnum(currentIndex))
-            
         # if pn looks to be in sync w/ dwg no., standard change notice to be shown.
         # else if looks same except last digits, verify if this chqange really wanted.
         # Note, 1st group of digits, i.e, 0300, 2730, etc. not taken into account
@@ -723,123 +961,132 @@ def cell_changed(k, clicked_text, column):
         # if cell has 5 characters, like '0300-', fill in with synced pt. no.
         elif (len(k[1]) == 5 and k[1].endswith('-')):
             k[1] = k[1] + dg[:4] + '-' + dg[4:]
+            showConfirmationMsg = False
         # if cell has 10 characters, like '0300-2020', fill in with synced pt. no.
         elif (len(k[1]) == 10 and k[1].endswith('-') and k[1][5:9] == dg[:4]):
             k[1] = k[1] + k[0][4:]
-    elif column == 2:
-        k[column] = k[column][:40]
-    if column == 3 and k[column].count('/') == 2:  # date column
-        j = k[column].split('/')
+           
+        if (not currentDescrip.strip() and len(k[1]) >= 13 and k[1][4] == '-'
+            and  int(k[1][:4]) in pndescrip):
+            k[2] = pndescrip[int(k[1][:4])]
+    elif column == 2:  
+        k[2] = k[2][:40]   # limit the description to 40 characters, the same as SyteLine
+    elif column == 3 and k[3].count('/') == 2:  # the column containing the date
+        j = k[3].split('/')
         if (all(i.isdigit() for i in j)
                 and (1 <= int(j[0]) <= 12)
                 and (1 <= int(j[1]) <= 31)
                 and (1998 <= int(j[2]) <= 2099)):
-            k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
+            k[3] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
         else:
-            k[column] = 'abort3'
+            return  # Entered date doesn't make sense.  Make no change.
     elif column == 3:
-        k[column] = 'abort3'
-    # case 1: delete a record:    
-    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm'):
-        k[column] = 'delete'
-    # case 2: user enters what appears to be a legit dwg. no.:
-    elif column == 0 and  k[0].isdigit() and (k[0][:2] == '20') and (len(k[0]) >= 7):
-        proposedNewIndex = int(k[0][:4] + (9 % len(k[0]))*'0' + k[0][4:])
-        maxAllowedIndex = lastIndex + 50
-        if proposedNewIndex > maxAllowedIndex:
-            k[column] = 'abort0_maxexceeded'
-    # case 3: dwg. no. erased e.g. 104119, to get back program generated no., e.g. 2020867
-    elif column == 0 and k[0].strip() == '':
-        originalnum = True
-        k[0] = str(indexnum2dwgnum(currentIndex))
-    # case 4: program generated no. overwritten, e.g. 2020867 overwritten by 104119
-    elif column == 0:
-        overwrite = True
+        return  # Entered date doesn't make sense.  Make no change.   
     elif column == 4:
-        k[column] = k[column].lower()
+        k[4] = k[4].lower()    # make the author name lower case
         
-    try:
-        if k[column] == 'abort3':
-            return
-        elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
-            if k[column] == 'abort0_maxexceeded':
-                msg = ('The maximum allowable increase for a drawing number ' +
-                       'is 50.\n ' + str(indexnum2dwgnum(maxAllowedIndex)) + 
-                       ' is the max in this case.')
-            else:
-                msg = 'Improper dwg. no.'
-            message(msg, 'Error', msgtype='Warning', showButtons=False)    
-            return
-        elif k[column] == 'delete':
-            msgtitle = 'Delete?'
-            msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
-                    + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
-        elif overwrite == True:
-            msgtitle = 'Overwrite?'
-            msg = ('Warning: You are about to overwrite a standard drawing\n' +
-                   'number used at Dekker. If overwritten, to retrieve the\n' +
-                   'original number edit the drawing number field and leave it\n' +
-                   'blank.  Press Enter and the original number will reappear.\n' +
-                   'This is true even if you close the program and reopen it.')
-        elif pnerr == True:
-            msgtitle = 'Warning!'
-            msg = ('It looks like you are trying to enter a part no. that this\n' +
-                   'program would normally generate. Do you expect that the\n' +
-                   'drawing no. will update to be in sync with this part no.?\n' +
-                   '(e.g. dwg. no. 2020410 is in sync with pn 0300-2020-410.)\n' +
-                   'If so, you are taking the wrong approach.\n\n ' +
-                 
-                   'Instead change the drawing number.  The part number,\n' +
-                   'assuming it is currenly in sync with the drawing mumber, will  \n' +
-                   'automatically update to be in sync with the new drawing number.')
+    # === Generate appropriate validation message to present to the user
+    if (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
+        if k[column] == 'abort0_maxexceeded':
+            msg = ('The maximum allowable increase for a drawing number ' +
+                   'is 50.\n ' + str(indexnum2dwgnum(maxAllowedIndex)) + 
+                   ' is the max in this case.')
         else:
-            msgtitle = 'Update?'
-            msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
-        retval = message(msg, msgtitle, msgtype='Warning', showButtons=True)
+            msg = 'Improper dwg. no.'
+        message(msg, 'Error', msgtype='Warning', showButtons=False)    
+        return
+    elif k[column] == 'delete':
+        msgtitle = 'Delete?'
+        msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
+                + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
+    elif overwrite == True:
+        msgtitle = 'Overwrite?'
+        msg = ('Warning: You are about to OVERWRITE a standard drawing number.\n\n' +
+               'See "Help > Update a field > Only if company policy permits" \n\n' +  
+               'from: ' +  clicked_text + '\nto:     ' + k[column])
+    elif pnerr == True:
+        msgtitle = 'Warning!'
+        msg = ('The drawing number WILL NOT be updated.  The drawing number\n' +
+               'will no longer be in sync with the part number.  To keep in sync,\n' +
+               'change instead the drawing number.\n\n' +  
+               'See "Help > Update a field > A drawing number may be changed." \n\n' +  
+               'from: ' +  clicked_text + '\nto:     ' + k[column])
+    elif pnWillChgWithDwgNo:
+        msgtitle = 'Update?'
+        msg =  ('from: ' +  clicked_text + '\nto:     ' + k[column])
+        msg += ('\n            and,  \n')
+        msg += ('from: ' +  currentPN  + '\nto:     '  + updatePN(currentPN, currentIndex, proposedNewIndex))
+    else:
+        msgtitle = 'Update?'
+        msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
+    
+    # === Generate the sqlite command to use to update the database
+    if column == 0 and k[0] == 'delete':  # case 1, delete
+        sqlUpdate = "DELETE from dwgnos WHERE dwg = '" + clicked_text + "'"
+    elif column == 0 and originalnum == True:  # case 3, original
+        sqlUpdate = ("UPDATE dwgnos SET " + 
+                     "dwg = '" + str(indexnum2dwgnum(currentIndex)) +
+                     "' WHERE dwg = '" + clicked_text + "'")
+    elif column == 0 and overwrite == True:  # case 4, overwrite
+        sqlUpdate = ("UPDATE dwgnos SET " + 
+                    "dwg = '" + str(k[0]) +
+                    "' WHERE dwg_index = " + str(currentIndex))
+    elif column == 0:  # case 2, legit dwg no.
+        sqlUpdate = ("UPDATE dwgnos SET " + 
+                     "dwg = '" + str(indexnum2dwgnum(proposedNewIndex)) +
+                     "', part = '" + updatePN(currentPN, currentIndex, proposedNewIndex) +
+                     "', dwg_index =  " + str(proposedNewIndex) +
+                     " WHERE dwg = '" + clicked_text + "'")
+    elif column == 1:
+        sqlUpdate = ("UPDATE dwgnos SET " + colnames[column] 
+                     + " = '" + k[column] + "', description = '" + k[2] + "' WHERE dwg = '" + k[0]) + "'"
+    else:
+        sqlUpdate = ("UPDATE dwgnos SET " + colnames[column] 
+                     + " = '" + k[column] + "' WHERE dwg = '" + k[0] + "'")  
         
-        if retval == QMessageBox.Cancel:
-            userresponse = False
-        elif retval == QMessageBox.Ok:
-            userresponse = True       
+    # ===  Show validation message to user.  retval is user's response (OK or Cancel)
+    if showConfirmationMsg == True:
+        retval = message(msg, msgtitle, msgtype='Warning', showButtons=True) 
+        userresponse = True if retval == QMessageBox.Ok else False 
+    else:
+        userresponse = True
+    
+    # === Finally, update the database
+    try:
+        #userresponse = True if retval == QMessageBox.Ok else False
         if userresponse == True:    
             conn = sqlite3.connect("dwglog2.db")
             c = conn.cursor()
-            if column == 0 and k[0] == 'delete':  # case 1, delete
-                sqlUpdate = 'DELETE from dwgnos WHERE dwg = ' + clicked_text
-            elif column == 0 and originalnum == True:  # case 3, original
-                sqlUpdate = ('UPDATE dwgnos SET ' + 
-                             'dwg = ' + str(indexnum2dwgnum(currentIndex)) +
-                             ' WHERE dwg = "' + clicked_text + '"')
-            elif column == 0 and overwrite == True:  # case 4, overwrite
-                sqlUpdate = ('UPDATE dwgnos SET ' + 
-                            'dwg = "' + str(k[0]) +
-                            '" WHERE dwg_index = ' + str(currentIndex))
-            elif column == 0:  # case 2, legit no.
-                sqlUpdate = ("UPDATE dwgnos SET " + 
-                             #colnames[0] + " = " + k[0] +
-                             "dwg = " + str(indexnum2dwgnum(proposedNewIndex)) +
-                             ", part = '" + updatePN(currentPN, currentIndex, proposedNewIndex) +
-                             "', dwg_index =  " + str(proposedNewIndex) +
-                             " WHERE dwg = " + clicked_text)
-            else:
-                sqlUpdate = ('UPDATE dwgnos SET ' + colnames[column] 
-                             + " = '" + k[column] + "' WHERE dwg = " + k[0])
             c.execute(sqlUpdate)
             conn.commit()
             c.close()        
-            conn.close() 
-            
+            conn.close()
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         message(errmsg, 'Error')
-    except Exception as er:
-        if er.args:
-            QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
-        else:
-            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')  
-            
+           
             
 def message(msg, msgtitle, msgtype='Warning', showButtons=False):
+    '''
+    UI message to show to the user
+
+    Parameters
+    ----------
+    msg: str
+        Message presented to the user.
+    msgtitle: str
+        Title of the message.
+    msgtype: str, optional
+        Type of message.  Currenly only valid input is 'Warning'.
+        The default is 'Warning'.
+    showButtons: bool, optional
+        If True, show OK and Cancel buttons. The default is False.
+
+    Returns
+    -------
+    retval: QMessageBox.StandardButton
+        "OK" or "Cancel" is returned
+    '''
     msgbox = QMessageBox()
     if msgtype == 'Warning':
         msgbox.setIcon(QMessageBox.Warning)
@@ -860,13 +1107,13 @@ def indexnum2dwgnum(dwg_index):
     Parameters
     ----------
     dwg_index : int
-        Number from the column name "dwg_index".  This column is hidden to
-        the user.  It resides in the database file dwglog2.db.
+        Number from the column name "dwg_index".  (This column is hidden to
+        the user.  It resides in the database file dwglog2.db.)
 
     Returns
     -------
     int
-        A new drawing number to place a a Dekker drawing.
+        A new drawing number.  It corresponds to dwg_index.
     '''
     chrs = str(dwg_index)[4:]
     whittled = chrs    
@@ -912,8 +1159,51 @@ def updatePN(oldpn, oldindexNo, newIndexNo):
         return newpn
     else:
         return oldpn
-           
-                    
+ 
+    
+pndescrip = {300:"BASEPLATE", 2202:'CTRL/LAYOUT PNL ??HP ???V', 
+   2223:'CTRL/LAYOUT PNL ??HP ???V', 2250:'CTRL/LAYOUT PNL ??HP ???V', 
+   2273:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK',
+   2277:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK', 
+   2451:'PLACARD SET', 2704:"COVER PLATE", 2708:"ENDPLATE",
+   2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET", 
+   2730:"BRACKET CTRL PNL height?Xwidth? CS",
+   2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
+   3420:'FLOW ORIFICE PLATE ??"ID', 
+   3510:'GASKET ?mtl? ??"OD X ??"ID X ??"THK', 3700:"GUARD COUPLING",
+   3705:"GUARD FINGER", 3715:"GUARD V-BELT", 4010:"HT EX", 4715:"KIT",
+   4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK HORZ ??? GAL CS",
+   6004:"RECEIVER TANK VERT ??? GAL CS", 6005:"RECEIVER TANK VERT ASSY ??? GAL CS",
+   6006:"RCVR TANK VERT W/PLATFORM ??? GAL CS", 
+   6008:"RCVR TANK HORZ GRASSHOPPER ??? GAL CS",
+   6050:"RISERBLOCK", 6405:"CONDENSATE TANK CS", 6410:'SEPARATOR OIL FR ??"OD CS', 
+   6415:'SEPARATOR FR ??"OD CS', 6420:"SEPARATOR KO CS", 6425:'SEPARATOR NR ??"OD CS', 
+   6430:'SEPARATOR NR/PR ??"OD CS', 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD CS",
+   6825:"SUB ASSY INLET/DISCH MNFLD CS", 6830:"SUB ASSY INLET MANIFOLD CS",
+   6840:"SUB ASSY SEPARATOR CS", 6860:"SUB ASSY pump? ??HP MTR", 
+   6875:"SUB ASSY PIPING CS", 6882:'SUB ASSY KO TANK ?? GAL ??"OD CS', 
+   6885:"SUB ASSY LEVEL SWITCH", 6886:"SUB ASSY V-BELT", 
+   6890:"SUB ASSY PIPING CS", 6891:"SUB ASSY 2ND STG OIL FILTER", 
+   7318:"VALVE CHK INLINE"}      
+    
+  
+try:
+    import descriptions
+    pndescrip.update(descriptions.descriptions)
+except ModuleNotFoundError as inst:
+    print('Error, module not found: ', inst)
+except Exception as inst:
+    print('Warning: ', inst)  
+    msgtitle =  "Warning"
+    msg = ('The file named descriptions.py failed to load.  The dwglog2\n' +
+           'program will attempt to continue without the data provided by\n' +
+           'this file, but may crash.  Please fix the error in descriptions.py.\n' +
+           "For more information, see dwglog2's help information.  As a last\n" +
+           'resort, delete the descriptions.py file.\n\n' +
+           str(inst))
+    message(msg, msgtitle)
+
+
 app = QApplication(sys.argv)
 if (QDialog.Accepted == True):
     window = MainWindow()

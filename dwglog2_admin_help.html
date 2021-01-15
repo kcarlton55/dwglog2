@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<a id="top">
+<h1>Dekker dwglog2 admin help</h1>
+
+<ul>
+    <li><a href="#importing">Importing from the old database</a></li>
+    <li><a href="#dwglog2.db">dwglog2.db</a></li>
+    <li><a href="#language">In what computer language was dwglog2 written?</a></li>
+    <li><a href="#install">How to install the dwglog2 program</a></li>
+    <li><a href="#descrips">descriptions.py</a></li>
+</ul>
+
+<a id="importing">
+<h2>Importing from the old database:</h2>
+    <p>The data from the current drawing log program, roughly 22,000 rows of
+    data, can be exported to an Excel file.  I, Ken Carlton, have a program 
+    prepared that can parse that data and place it into a database file that
+    the new dwglog2 program can use.</p>
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<a id="dwglog2.db">
+<h2>dwglog2.db:</h2>
+
+    <p>The dwglog2 program stores data in a database file named dwglog2.db.  
+    This file should be in the same folder that the dwglog2 executable program
+    is located. Or the file dwglog2.db can be a sybolic link to the file at 
+    some other location in the network. </p>
+
+    <p>dwglog2.db should be in a location where it can be backed up regularly. 
+    Preferably the properties of file will prevent it from being deleted, 
+    except by the administor, but the file should have read/write rights for
+    those users who will need to use the dwglog2 program.</p>
+
+    <p>The dwglog2.db file is accessed and updated by a program internal to the
+    dwglog2 program called sqlite.  Sqlite is a sql data management program 
+    capable of handling millios of lines of data, and it operates similarly to
+    Microsoft SQL Server which is used at Dekker, but it is meant to be used on 
+    a local network rather than a global network like amazon.com.  Sqlite is 
+    robust.  For example, it has been approved by the FAA to be used on
+    airlines.</p>
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<a id="language">
+<h2>In what computer language was dwglog2 written?</h2>
+
+    Actually three languages were used: <b>1.</b>
+    <a href="https://en.wikipedia.org/wiki/PySide" target="_blank">PySide2</a> 
+    to control the graphical user interface (GUI). <b>2.</b>
+    <a href="https://en.wikipedia.org/wiki/SQLite" target="_blank">SQLite</a>
+    to manage the database which allows simultaneous and secure 
+    (<a href="https://en.wikipedia.org/wiki/ACID" target="_blank">
+        ACID compliant</a>)
+    transactions with the database file. And <b>3.</b> 
+    <a href="https://en.wikipedia.org/wiki/Python_(programming_language)"
+        target="_blank">Python</a> 
+    which acts as a binder and coordinator of the first two languages.
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>  
+
+
+<a id="install">
+<h2>How to install the dwglog2 program</h2>
+
+    <p>The dwglog2 program was converted from a readable python file named
+    dwglog2.py to the executable file named dwglog2.exe by use of a program
+    called <a href="https://pypi.org/project/pyinstaller/">pyinstaller</a>.
+    Pyinstaller places the exe file that it creates into a folder alongside
+    of support files.  The support files permit the exe file to run without
+    having to having to have Python library files present which is normally
+    required (like the Python distribution that was used to create the 
+    dwglog2 program: <a href="https://www.anaconda.com/">Anaconda</a>).</p>
+  
+    <p><b>The folder is named dwglog2</b>.  That folder and its contents should
+    be placed on users' local hard drives.  A symbolic link should then be made
+    to the dwglog2.exe file so that the link will show at a convenient location
+    such as the user’s desktop.</p>
+
+    <p>In the dwglog2 folder alongside the dwglog2.exe file should be placed
+    the two (or more) html help files… the html files that appear when a user
+    clicks on the help button in the dwglog program.  If convenient, these html
+    files can be symbolic link files pointing to html files located somewhere
+    on the network.  This will allow for a central location to update the html
+    files if required.  This may be necessary if company policy changes in the
+    future regarding, for example, allowing special formats for
+    drawing numbers.</p>
+
+    <p>See also the section above named dwglog2.db reguarding placing the
+    database file in the same folder as the exe file.  And see the section
+    below about adding the file named descriptions.py to the folder.</p>
+
+    <p>The dwglog2 folder can also be placed on a network drive and ran from
+    there.  That would of course make setting things up much easier.  The
+    drawback with this is that the program will take about 6 seconds to start
+    up.  From a local drive it takes less than two seconds.  I don’t know why
+    the extra time is required.  I suspect it might have something to do with
+    the antivirus program trying to ascertain what is going on.</p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>  
+
+<a id="descrips">
+<h2>descriptions.py:</h2>
+    <p>As the dwglog2 program is operating it suggests part descriptions based
+    on the leading four digits of a part number.  Additional part descriptions
+    can be added by creating a file named descriptions.py and placing the the
+    first four digits of part numbers along side of corresponding descriptions.
+    </p>  
+
+    <p>The description.py file should be in the same folder that the dwglog2 
+    executable file
+    is located.  Or the file description.py can be a sybolic link to the file
+    at some other location in the network.</p>
+
+    <p>The data in the description.py file should be in the format used in the 
+    computer program called Python.  That is, the data in description.py is 
+    actually a small snippit of computer code.  I'll explain that code so that
+    no programming knowledge will be required to update or create the file.</p>
+
+    <p>First of all, if it does not already exist, create, using a text editor
+    like notepad, a text file, but instead of having txt as a file extension,
+    use py as the extension.  If the file already exist, use a text editor like
+    notepad to edit it.  As metioned above, that file should be in the same 
+    folder as the dwglog2 executable.</p>
+
+    <p>The code in the file is what is called a Python dictionary. For our 
+    case, the dictionary starts out with the variable name, "decriptions", 
+    followed by an equals sign, and followed by the dictionary. The dictionary
+    is surrounded by brackets, {}.  Within the brackets are the pn/desription
+    values.  That is, in your descriptions.py file you will have text like 
+    this:</p>
+
+    descriptions = {2200:'J-BOX',<br /> 
+    2204:'CTRL PNL MANUAL MOTOR STARTER ??V',<br />  
+    2210:'CTRL/LAYOUT PNL ??V ??HP',<br /> 
+    4700:'KIT', <br /> 
+    6810:'SUB ASSY COOLER PACK',<br /> 
+    6855:'SUB ASSY ??"HOSE X ??" LG STAND',<br />  
+    6881:'SUB ASSY CONDENSER PKG ??GAL CS'}<br /> 
+
+    <p>So then, the syntax should be like this: descriptions = 
+    {1234:'DESCRIPTION FOR 1234', 5678:'DESCRIPTION FOR 5678'}.
+    Note that a part no. like 0300, with its leading 0, is unacceptable.  It
+    should be 300.  Any duplicate nos. in descriptions.py will supersede those
+    in the dwglog2 program.</p>
+
+    <p>If there are any missing or misplaced commas, colons, etc., the 
+    descriptions.py will not be implemented.  For more information about python
+    dictionaries see:
+    <a href="https://beginnersbook.com/2019/03/python-dictionary/" 
+        target="_blank"> 
+        https://beginnersbook.com/2019/03/python-dictionary/</a>
+    </p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<i><p style="text-align:right;">last updated: 1/11/2021</p></i>
+
+</body>
+</html>
