@@ -1,6 +1,3 @@
-
-
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -8,18 +5,17 @@ Created on Mon Jul  6 21:49:28 2020
 
 @author: Kenneth E. Carlton
 
-Written for Dekker Vaccuum Technologies, Inc.  Manages and minipulates data
-in a sqlite database file.  This database file contains drawing numbers with 
-associated part numbers, part discriptions, drawing dates, and drawing authors.
+Written for Dekker Vaccuum Technologies, Inc.. Generates drawing numbers and
+stores those numbers, along with part numbers and part descriptions, in a
+sqlite database file.
 """
-
 
 from PyQt5.QtCore import Qt 
 from PyQt5.QtWidgets import (QTableWidget, QMainWindow, QDialog, QApplication,
                              QToolBar, QStatusBar, QAction, QLabel, QLineEdit,
                              QTableWidgetItem, QVBoxLayout, QPushButton, QComboBox,
                              QHBoxLayout, QMessageBox, QDialogButtonBox, QRadioButton)
-from PyQt5.QtGui import QIcon, QKeySequence, QPixmap
+from PyQt5.QtGui import QIcon, QKeySequence, QPixmap, QColor
 import sys
 import sqlite3
 import os
@@ -111,10 +107,13 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.searchinput)
             
         addpart_action = QAction(QIcon('icon/add_record.png'), '&Add Record', self)
+        #self.addshortcut = QShortcut(QKeySequence('Ctrl+A'), self)  # ===========
+        #self.addshortcut.activated.connect(self.insert)             # ===========
+        addpart_action.setShortcut(QKeySequence.SelectAll)
         addpart_action.triggered.connect(self.insert)
         file_menu.addAction(addpart_action)
         
-        addrefresh_action = QAction(QIcon('icon/r3.png'), 'Refresh', self)
+        addrefresh_action = QAction(QIcon('icon/r3.png'), '&Refresh', self)
         addrefresh_action.setShortcut(QKeySequence.Refresh)
         addrefresh_action.triggered.connect(self.loaddata)
         file_menu.addAction(addrefresh_action)
@@ -146,7 +145,10 @@ class MainWindow(QMainWindow):
             self.tableWidget.insertRow(row_number)
             for column_number, data in enumerate(row_data):
                 item = QTableWidgetItem(str(data))
+                if '?' in str(data):
+                    item.setBackground(QColor(255, 255, 0))
                 self.tableWidget.setItem(row_number, column_number, item)
+                
         c.close()        
         conn.close()
         self.loadingdata = False
@@ -243,19 +245,6 @@ class AddDialog(QDialog):
         self.setWindowTitle('Insert Part Data')
         self.setFixedWidth(350)
         self.setFixedHeight(150)
-        
-       
-        
-# =============================================================================
-#         self.partinput = QLineEdit()
-#         self.partinput.setPlaceholderText('Part No. (nos. like 0300- or 0300 will autofill)')
-#         self.partinput.setMaxLength(30)
-#         self.partinput.textChanged.connect(self.pntextchanged)
-#         layout.addWidget(self.partinput)
-# =============================================================================
-        
-
-        
         
         layout = QVBoxLayout()
 
@@ -460,6 +449,8 @@ class SearchResults(QDialog):
             for r in range(self.r_max):
                 for c in range(self.c_max):
                     item = QTableWidgetItem(str(self.found[r][c]))
+                    if '?' in str(str(self.found[r][c])):
+                        item.setBackground(QColor(255, 255, 0))
                     item.setTextAlignment(Qt.AlignLeft|Qt.AlignVCenter)
                     self.tableWidget.setItem(r, c, item)
             self.loadingdata = False
@@ -1161,30 +1152,30 @@ def updatePN(oldpn, oldindexNo, newIndexNo):
         return oldpn
  
     
-pndescrip = {300:"BASEPLATE", 2202:'CTRL/LAYOUT PNL ??HP ???V', 
+pndescrip = {300:"BASEPLATE ? CS", 2202:'CTRL/LAYOUT PNL ??HP ???V', 
    2223:'CTRL/LAYOUT PNL ??HP ???V', 2250:'CTRL/LAYOUT PNL ??HP ???V', 
    2273:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK',
    2277:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK', 
-   2451:'PLACARD SET', 2704:"COVER PLATE", 2708:"ENDPLATE",
-   2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET", 
+   2451:'PLACARD SET FOR ?', 2704:"COVER PLATE ? CS", 2708:"ENDPLATE ? CS",
+   2724:'SHELL ??"OD X ??"LG X ??"THK CS', 2728:"BRACKET ? CS", 
    2730:"BRACKET CTRL PNL height?Xwidth? CS",
-   2922:"FILTER INLET", 3060:"FITTING HOSE BARB", 
+   2922:"FILTER INLET ?", 3060:"FITTING HOSE BARB ?", 
    3420:'FLOW ORIFICE PLATE ??"ID', 
-   3510:'GASKET ?mtl? ??"OD X ??"ID X ??"THK', 3700:"GUARD COUPLING",
-   3705:"GUARD FINGER", 3715:"GUARD V-BELT", 4010:"HT EX", 4715:"KIT",
-   4790:"TAG", 5130:"HULLVAC INLET", 6000:"RECEIVER TANK HORZ ??? GAL CS",
+   3510:'GASKET ?mtl? ??"OD X ??"ID X ??"THK', 3700:"GUARD COUPLING ?",
+   3705:"GUARD FINGER ?", 3715:"GUARD V-BELT ?", 4010:"HT EX ?", 4715:"KIT ?",
+   4790:"TAG ?", 5130:"HULLVAC INLET ?", 6000:"RECEIVER TANK HORZ ??? GAL CS",
    6004:"RECEIVER TANK VERT ??? GAL CS", 6005:"RECEIVER TANK VERT ASSY ??? GAL CS",
    6006:"RCVR TANK VERT W/PLATFORM ??? GAL CS", 
    6008:"RCVR TANK HORZ GRASSHOPPER ??? GAL CS",
-   6050:"RISERBLOCK", 6405:"CONDENSATE TANK CS", 6410:'SEPARATOR OIL FR ??"OD CS', 
-   6415:'SEPARATOR FR ??"OD CS', 6420:"SEPARATOR KO CS", 6425:'SEPARATOR NR ??"OD CS', 
-   6430:'SEPARATOR NR/PR ??"OD CS', 6775:"STRAINER", 6820:"SUB ASSY DISCH MANIFOLD CS",
-   6825:"SUB ASSY INLET/DISCH MNFLD CS", 6830:"SUB ASSY INLET MANIFOLD CS",
-   6840:"SUB ASSY SEPARATOR CS", 6860:"SUB ASSY pump? ??HP MTR", 
-   6875:"SUB ASSY PIPING CS", 6882:'SUB ASSY KO TANK ?? GAL ??"OD CS', 
-   6885:"SUB ASSY LEVEL SWITCH", 6886:"SUB ASSY V-BELT", 
-   6890:"SUB ASSY PIPING CS", 6891:"SUB ASSY 2ND STG OIL FILTER", 
-   7318:"VALVE CHK INLINE"}      
+   6050:"RISERBLOCK ? CS", 6405:"CONDENSATE TANK ? CS", 6410:'SEPARATOR OIL FR ??"OD CS', 
+   6415:'SEPARATOR FR ??"OD CS', 6420:"SEPARATOR KO ? CS", 6425:'SEPARATOR NR ??"OD CS', 
+   6430:'SEPARATOR NR/PR ??"OD CS', 6775:"STRAINER ? CS", 6820:"SUB ASSY DISCH MANIFOLD ? CS",
+   6825:"SUB ASSY INLET/DISCH MNFLD ? CS", 6830:"SUB ASSY INLET MANIFOLD ? CS",
+   6840:"SUB ASSY SEPARATOR ? CS", 6860:"SUB ASSY pump? ??HP MTR", 
+   6875:"SUB ASSY PIPING ? CS", 6882:'SUB ASSY KO TANK ?? GAL ??"OD CS', 
+   6885:"SUB ASSY LEVEL SWITCH ?", 6886:"SUB ASSY V-BELT ?HP", 
+   6890:"SUB ASSY PIPING ? CS", 6891:"SUB ASSY 2ND STG OIL FILTER ?", 
+   7318:"VALVE CHK INLINE ?"}      
     
   
 try:
