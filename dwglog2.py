@@ -79,7 +79,7 @@ class MainWindow(QMainWindow):
         btn_ac_addpart.setStatusTip('Add a Record')
         toolbar.addAction(btn_ac_addpart)
 
-        btn_ac_refresh = QAction(QIcon('icon/r3.png'), 'Refresh', self)  # refresh icon
+        btn_ac_refresh = QAction(QIcon('icon/refresh.png'), 'Refresh', self)  # refresh icon
         btn_ac_refresh.triggered.connect(self.loaddata)
         btn_ac_refresh.setStatusTip('Refresh Table')
         toolbar.addAction(btn_ac_refresh)
@@ -102,7 +102,7 @@ class MainWindow(QMainWindow):
         self.searchinput = QLineEdit()
         self.searchinput.setPlaceholderText('\U0001F50D Type here to search (e.g. BASEPLATE*; kcarlton)')
         self.searchinput.setToolTip('; = intersection of search result sets. Search is case sensitive. \n' +
-                                    'GLOB characters *, ?, [, ], and ^ can be used for searching')
+                                    'GLOB characters *, ?, [, and ] can be used for searching')
         self.searchinput.returnPressed.connect(self.searchpart)
         toolbar.addWidget(self.searchinput)
 
@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         addpart_action.triggered.connect(self.insert)
         file_menu.addAction(addpart_action)
 
-        addrefresh_action = QAction(QIcon('icon/r3.png'), '&Refresh', self)
+        addrefresh_action = QAction(QIcon('icon/refresh.png'), '&Refresh', self)
         addrefresh_action.setShortcut(QKeySequence.Refresh)
         addrefresh_action.triggered.connect(self.loaddata)
         file_menu.addAction(addrefresh_action)
@@ -128,7 +128,7 @@ class MainWindow(QMainWindow):
         help_action.triggered.connect(self._help)
         help_menu.addAction(help_action)
 
-        about_action = QAction(QIcon('icon/i1.png'), '&About', self)
+        about_action = QAction(QIcon('icon/about.png'), '&About', self)
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
 
@@ -398,7 +398,7 @@ class SearchResults(QDialog):
         self.tableWidget.cellChanged.connect(self.cell_was_changed)
 
         btn_refresh = QPushButton()
-        btn_refresh.setIcon(QIcon("icon/r3.png"))
+        btn_refresh.setIcon(QIcon("icon/refresh.png"))
         btn_refresh.setFixedSize(16, 16)
         btn_refresh.setFlat(True)
         btn_refresh.setToolTip('Refresh')
