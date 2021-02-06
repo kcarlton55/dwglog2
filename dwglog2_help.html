@@ -34,7 +34,7 @@ table {
 <h2>Add a new record:</h2>
 
     <p>Press the button that has the plus sign on it.  Enter the part no. and
-    description.  Other record fields (dwg no., date, author) will be 
+    description.  Other record fields (dwg no., date, author) will be
     automatically filled in.  If only the first four digits of a part no. are
     entered, then once the part no. is submitted the remainder of the part no.
     will be appended automatically.  For example 0300 will turn into
@@ -42,7 +42,7 @@ table {
 
     <p>After you enter the first four digits for a part number, if the number
     is for a common part type, the description field will fill in automatically
-    with a partial description.  Finish filling in the description field or 
+    with a partial description.  Finish filling in the description field or
     alter it accordingly. For example, entering 0300 in the pt. no. field will
     cause the word BASEPLATE to show in the description field.</p>
 
@@ -61,9 +61,9 @@ table {
         <ul><li><table>
             <tr><th>Dwg. no.</th><th>Part no.</th><th>Description</th><th>Date
                 </th><th>Author</th></tr>
-            <tr><td>2020870</td><td>2730-2020-870</td><td>BRACKET PANEL 20X20 
+            <tr><td>2020870</td><td>2730-2020-870</td><td>BRACKET PANEL 20X20
                 200GAL TANK CS</td><td>12/04/2020</td><td>tasbury</td></tr>
-            <tr><td>2020863</td><td>2730-2020-863</td><td>PANEL BRACKET 16x14 
+            <tr><td>2020863</td><td>2730-2020-863</td><td>PANEL BRACKET 16x14
                 CS</td><td>12/02/2020</td><td>whoyt</td></tr>
             <tr><td>etc.</td></tr>
         </table></li></ul>
@@ -75,25 +75,25 @@ table {
         <ul><li><table>
             <tr><th>Dwg. no.</th><th>Part no.</th><th>Description</th><th>Date
                 </th><th>Author</th></tr>
-            <tr><td>2020859</td><td>0300-2020-859</td><td>BASEPLATE FOR 
+            <tr><td>2020859</td><td>0300-2020-859</td><td>BASEPLATE FOR
                 DV0016B-DA2 W/MONO BLK MTR</td><td>12/01/2020</td><td>kcarlton
                 </td></tr>
-            <tr><td>2020857</td><td>094411</td><td>DV0016B-DA2 W/MONO BLK MTR & 
+            <tr><td>2020857</td><td>094411</td><td>DV0016B-DA2 W/MONO BLK MTR &
                 BASE</td><td>11/27/2020</td><td>kcarlton</td></tr>
             <tr><td>etc.</td></tr>
         </table></li></ul>
 
         <p>Here found are records (a record being a row of data) where kcarlton
         is the author, and the date of creation is November or December of 2020.
-        The [12] means 1 or 2, thus 1[12] means months 11 or 12.  The * in 
+        The [12] means 1 or 2, thus 1[12] means months 11 or 12.  The * in
         1[12]/*/2020 means any day of the month.</p>
 
         <p>There are actually two query groups that are searched for in the
-        above example: 1[12]/*/2020 and kcarlton. The semicolon, ;, acts as a 
-        special <a href="https://en.wikipedia.org/wiki/Delimiter" 
+        above example: 1[12]/*/2020 and kcarlton. The semicolon, ;, acts as a
+        special <a href="https://en.wikipedia.org/wiki/Delimiter"
         target="_blank">delimiter</a> character in the program. The semicolon
         results in the program only displaying results that each query group
-        has in common.  Put another way, the semicolon finds the intersection 
+        has in common.  Put another way, the semicolon finds the intersection
         of results from the two query groups.</p>
 
     <h4>&nbsp;&nbsp;example 3, query:</h4>
@@ -115,7 +115,7 @@ table {
 
         <p>The groups in the query with or without the semicolon character are
         searched first.  The "<b>or</b>" keyword that separates those groups
-        acts to find any or all of the results from those individual groups. The word 
+        acts to find any or all of the results from those individual groups. The word
         "or" must be in lower case letters.</p>
 
         <p>Note that searches are case sensitive. That is *rc* and *RC* will
@@ -128,33 +128,33 @@ table {
 
 <a id="update">
 <h2>Update a field:</h2>
-    <p>To update a field (a table cell), change the text in the field  
+    <p>To update a field (a table cell), change the text in the field
     and then press the Enter key.</p>
 
     <p>If in a part no. field you put the first four digits and a dash
-    (e.g. 0300-), the part no. will autogenerate (e.g. 0300-2021-030). 
+    (e.g. 0300-), the part no. will autogenerate (e.g. 0300-2021-030).
 
     <p><b>A drawing number may be changed</b>.  For example, you can change
     drawing number 2020456 to 2020460 if the number 2020460 is available.  If
-    the number is unvailable, the program will show an error message and the 
+    the number is unvailable, the program will show an error message and the
     change will not occur.</p>
 
     <p>When an drawing number is changed, the part no. will attempt to change
     automatically.  For example, if for drawing number 2020456 the part number
-    is 0300-2020-456, changing the drawing number to 2020460 will change the 
+    is 0300-2020-456, changing the drawing number to 2020460 will change the
     part no. to 0300-2020-460.</p>
 
     <p><b><u>Only if company policy permits</u>, a drawing number may be
     overwritten</b>.  A drawing number looking like 2020466 is autogenerated by
-    the program.  If the user changes the drawing number to something like 
+    the program.  If the user changes the drawing number to something like
     3201T112 or AC20466 (for Atlas Copco), both of which are in a nonstandard
-    format, the original autogenerated drawing number will overwritten. To 
+    format, the original autogenerated drawing number will be overwritten. To
     retrieve the original number, edit the drawing no. field, leave it black,
-    and then press Enter.     
+    and then press Enter.
 
     <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
 
-  
+
 <a id="delete">
 <h2>Delete a record:</h2>
     <p>To delete a data record (a table row), enter one of the following words
@@ -167,7 +167,7 @@ table {
 <a id="refresh">
 <h2>Refresh the table:</h2>
     <p>While you are working on the dwglog2 program, other users simultaneously
-    have access to the same data shown to you.  You may wish to push the 
+    have access to the same data shown to you.  You may wish to push the
     refresh button to see changes other users have made while you have been
     working with the program.  Also, if you wish to assure that your data has
     been updated successfully, push the refresh button.  The most recent data

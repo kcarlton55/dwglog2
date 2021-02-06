@@ -25,6 +25,14 @@ import webbrowser
 __version__ = '0.1'
 __author__ = 'Kenneth E. Carlton'
 
+if os.getenv('USERNAME'):
+    author = os.getenv('USERNAME')  # Works only on MS Windows
+    author = author.replace('_', '').lower()
+elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
+    author = 'kcarlton'
+else:
+    author = 'unknown'
+
 
 class MainWindow(QMainWindow):
     ''' Shows a table of data derived from the dwglog2.db database.  Menu items
@@ -46,7 +54,7 @@ class MainWindow(QMainWindow):
         file_menu = self.menuBar().addMenu('&File')
         help_menu = self.menuBar().addMenu('&Help')
         self.setWindowTitle('Dekker Drawing Log 2')
-        self.setMinimumSize(850, 600)
+        self.setMinimumSize(765, 600)
 
         self.tableWidget = QTableWidget()
         self.setCentralWidget(self.tableWidget)
@@ -54,7 +62,7 @@ class MainWindow(QMainWindow):
         self.tableWidget.setColumnCount(5)
 
         self.tableWidget.setColumnWidth(0, 80)
-        self.tableWidget.setColumnWidth(1, 250)
+        self.tableWidget.setColumnWidth(1, 170)
         self.tableWidget.setColumnWidth(2, 335)
         self.tableWidget.setColumnWidth(3, 90)
         self.tableWidget.setColumnWidth(4, 30)
@@ -263,7 +271,12 @@ class AddDialog(QDialog):
         self.descriptioninput.setPlaceholderText('Description')
         self.descriptioninput.setMaxLength(40)
         layout.addWidget(self.descriptioninput)
-
+        
+        self.author = QLineEdit()
+        self.author.setPlaceholderText('Author (default: ' + author + ')')
+        #self.author.returnPressed.connect(self.change_author)
+        
+        layout.addWidget(self.author)
 
         self.QBtn = QPushButton('text-align:center')
         self.QBtn.setText("OK")
@@ -275,24 +288,30 @@ class AddDialog(QDialog):
         layout.addLayout(hbox)
         self.setLayout(layout)
 
-
-
     def addpart(self):
+        global author
         #part = ""
         description = ""
+        
 
-        if os.getenv('USERNAME'):
-            author = os.getenv('USERNAME')  # Works only on MS Windows
-            author.replace('_', '')
-        elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
-            author = 'kcarlton'
-        else:
-            author = 'unknown'
+# =============================================================================
+#         if os.getenv('USERNAME'):
+#             author = os.getenv('USERNAME')  # Works only on MS Windows
+#             author = author.replace('_', '')
+#         elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
+#             author = 'kcarlton'
+#         else:
+#             author = 'unknown'
+# =============================================================================
 
         #part = self.partinput.text().upper().strip()    #---
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%m/%d/%Y")
+        
+        if self.author.text():
+            author = self.author.text().lower()
+        
         try:
             self.conn = sqlite3.connect('dwglog2.db')
             self.c = self.conn.cursor()
@@ -358,7 +377,7 @@ class AddDialog(QDialog):
             self.descriptioninput.setText(self.descrip.strip())
         if (len(part) == 5 and part[-1:] != '-' and desc == self.descrip.strip()):
             self.descriptioninput.setText("")
-
+            
 
 class SearchResults(QDialog):
     ''' A dialog box to show search results based on a users search query.
@@ -373,7 +392,7 @@ class SearchResults(QDialog):
         self.radio_button_on = radio_button_on
         lenfound = len(found)
         self.setWindowTitle('Search Results: ' + searchterm)
-        self.setMinimumWidth(850)
+        self.setMinimumWidth(785)
         if lenfound >= 16:
             self.setMinimumHeight(600)
         elif 16 > lenfound > 5:    # to rescrict the size of the dialog box somewhat
@@ -388,7 +407,7 @@ class SearchResults(QDialog):
         self.tableWidget.setColumnCount(5)
         self.tableWidget.verticalHeader().setVisible(False)
         self.tableWidget.setColumnWidth(0, 80)
-        self.tableWidget.setColumnWidth(1, 250)
+        self.tableWidget.setColumnWidth(1, 170)
         self.tableWidget.setColumnWidth(2, 335)
         self.tableWidget.setColumnWidth(3, 90)
         self.tableWidget.setColumnWidth(4, 30)
