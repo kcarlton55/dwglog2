@@ -44,12 +44,12 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon('icon/dwglog2.ico'))
 
         self.conn = sqlite3.connect('dwglog2.db')
-        self.c = self.conn.cursor()
-        self.c.execute('''CREATE TABLE IF NOT EXISTS
-                        dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
-                        dwg KEY NOT NULL UNIQUE, part TEXT,
-                        description TEXT, date TEXT NOT NULL, author TEXT)''')
-        self.c.close()
+        with self.conn:
+            self.c = self.conn.cursor()
+            self.c.execute('''CREATE TABLE IF NOT EXISTS
+                            dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                            dwg KEY NOT NULL UNIQUE, part TEXT,
+                            description TEXT, date TEXT NOT NULL, author TEXT)''')
 
         file_menu = self.menuBar().addMenu('&File')
         help_menu = self.menuBar().addMenu('&Help')
@@ -142,23 +142,23 @@ class MainWindow(QMainWindow):
 
     def loaddata(self):
         self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.
+        
         conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        query = ('''SELECT dwg, part, description, date, author
-                    FROM dwgnos
-                    ORDER BY dwg_index DESC LIMIT 100''')
-        result = c.execute(query)
-        self.tableWidget.setRowCount(0)
-        for row_number, row_data in enumerate(result):
-            self.tableWidget.insertRow(row_number)
-            for column_number, data in enumerate(row_data):
-                item = QTableWidgetItem(str(data))
-                if '?' in str(data):
-                    item.setBackground(QColor(255, 255, 0))
-                self.tableWidget.setItem(row_number, column_number, item)
-
-        c.close()
-        conn.close()
+        with conn:
+            c = conn.cursor()
+            query = ('''SELECT dwg, part, description, date, author
+                        FROM dwgnos
+                        ORDER BY dwg_index DESC LIMIT 100''')
+            result = c.execute(query)
+            self.tableWidget.setRowCount(0)
+            for row_number, row_data in enumerate(result):
+                self.tableWidget.insertRow(row_number)
+                for column_number, data in enumerate(row_data):
+                    item = QTableWidgetItem(str(data))
+                    if '?' in str(data):
+                        item.setBackground(QColor(255, 255, 0))
+                    self.tableWidget.setItem(row_number, column_number, item)
+    
         self.loadingdata = False
 
     def insert(self):
@@ -274,7 +274,6 @@ class AddDialog(QDialog):
         
         self.author = QLineEdit()
         self.author.setPlaceholderText('Author (default: ' + author + ')')
-        #self.author.returnPressed.connect(self.change_author)
         
         layout.addWidget(self.author)
 
@@ -289,55 +288,36 @@ class AddDialog(QDialog):
         self.setLayout(layout)
 
     def addpart(self):
-        global author
-        #part = ""
-        description = ""
-        
-
-# =============================================================================
-#         if os.getenv('USERNAME'):
-#             author = os.getenv('USERNAME')  # Works only on MS Windows
-#             author = author.replace('_', '')
-#         elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
-#             author = 'kcarlton'
-#         else:
-#             author = 'unknown'
-# =============================================================================
-
-        #part = self.partinput.text().upper().strip()    #---
+        global author        
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%m/%d/%Y")
         
         if self.author.text():
             author = self.author.text().lower()
-        
+                    
         try:
             self.conn = sqlite3.connect('dwglog2.db')
-            self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
-            result = self.c.fetchall()
-            dwgno, self.part, new_dwg_index = generate_nos(result, self.part)
-            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, self.part, description, _date, author))
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
+            with self.conn:
+                self.c = self.conn.cursor()
+                self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
+                result = self.c.fetchall()
+                dwgno, self.part, new_dwg_index = generate_nos(result, self.part)
+                self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                               (new_dwg_index, dwgno, self.part, description, _date, author))
             self.close()
         except TypeError:
+            # if a dwg_index no. not derived from the database, try the below
             year = date.today().year
-            dwgno, self.part, new_dwg_index  = year*1000, 'Invalid part no.'
-            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, self.part, description, _date, author))
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
+            dwgno, self.part, new_dwg_index  = generate_nos([(year*100000,)], self.part)
+            self.conn = sqlite3.connect('dwglog2.db')
+            with self.conn:
+                self.c = self.conn.cursor()
+                self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                               (new_dwg_index, dwgno, self.part, description, _date, author))
             self.close()
-            QMessageBox.warning(QMessageBox(), 'Error', 'No initial drawing number was found to begin from.  '
-                          'Will create a new one.  Possibly the error is a result of a new, empty, database '
-                          'file (dwglog2.db) having just been created?  Edit the new drawing number that '
-                          'is about to be created to adjust the start point.  Make it something like 2020305 '
-                          '(7 or 8 characters, all digits, the first 4 digits are the current year).')
+            QMessageBox.warning(QMessageBox(), 'Error', 'There appears to be a problem with\n'
+                                                        'the database.  Will try to cope.')
         except sqlite3.Error as er:
             errmsg = 'SQLite error: %s' % (' '.join(er.args))
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
@@ -527,10 +507,10 @@ def generate_nos(dwg_indexes, partNo):
 
     Parameters
     ----------
-    dwg_nos: list
-        A list of tuples derived from the dwg column of the prtnos table of the
-        dwglog2.db sqlite database file.  The list has a form like:
-        [(202100855,), (202100856,), (202100857,)]
+    dwg_indexes: list
+        A list of tuples derived from the dwg_index column (not the dwg column)
+        of the prtnos table of the dwglog2.db sqlite database file.  The list
+        has a form like: [(202100855,), (202100856,), (202100857,)]
 
     partNo: str
         Part no. given by the user.
@@ -549,7 +529,7 @@ def generate_nos(dwg_indexes, partNo):
     '''
     year = date.today().year  # current year, e.g. 2021 (an int)
     int_list = []
-    for x in dwg_indexes:  # dwg_nos has a form like [(202100855,), (202100856,), (202100857,)]
+    for x in dwg_indexes:  # dwg_indexes has a form like [(202100855,), (202100856,), (202100857,)]
         if isinstance(x[0], int) and str(x[0])[:4] == str(year):
             int_list.append(x[0])  # a list of recent dwg. nos.
     if int_list:  # list of dwg nos. in the current year
@@ -612,11 +592,10 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
     sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg_index DESC'
     try:
         conn = sqlite3.connect("dwglog2.db")
-        c = conn.cursor()
-        result = c.execute(sqlSelect)
+        with conn:
+            c = conn.cursor()
+            result = c.execute(sqlSelect)
         rows = result.fetchall()
-        c.close()
-        conn.close()
         if caller_is_SearchResults:
             return rows
         srch = SearchResults(rows, searchterm, radio_button_on)
@@ -676,6 +655,7 @@ def cell_changed(k, clicked_text, column):
     showConfirmationMsg = True
 
     # === preliminary setup... need some data from the database
+    conn = None
     try:
         if column <= 1:
             conn = sqlite3.connect('dwglog2.db')
@@ -697,9 +677,15 @@ def cell_changed(k, clicked_text, column):
         if column <= 1:
             c.close()
             conn.close()
+            
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         message(errmsg, 'Error')
+        sys.exit(1)
+        
+    finally:
+        if conn:
+            conn.close()
 
     # === analyze column input to determine what should happen
     # case 1: delete a record:
@@ -835,6 +821,7 @@ def cell_changed(k, clicked_text, column):
         userresponse = True
 
     # === Finally, update the database
+    conn = None
     try:
         #userresponse = True if retval == QMessageBox.Ok else False
         if userresponse == True:
@@ -844,9 +831,14 @@ def cell_changed(k, clicked_text, column):
             conn.commit()
             c.close()
             conn.close()
+            
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         message(errmsg, 'Error')
+        
+    finally:
+        if conn:
+            conn.close()
 
 
 def message(msg, msgtitle, msgtype='Warning', showButtons=False):
