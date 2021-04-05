@@ -22,7 +22,7 @@ import os
 from datetime import datetime, date
 import webbrowser
 
-__version__ = '0.2'
+__version__ = '0.3'
 __author__ = 'Kenneth E. Carlton'
 
 if os.getenv('USERNAME'):
@@ -40,16 +40,19 @@ class MainWindow(QMainWindow):
     '''
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
+        
+        global sqldatafile
+        sqldatafile = get_sqldatafile()        
+        self.conn = sqlite3.connect(sqldatafile)
 
-        self.setWindowIcon(QIcon('icon/dwglog2.ico'))
-
-        self.conn = sqlite3.connect('dwglog2.db')
-        self.c = self.conn.cursor()
-        self.c.execute('''CREATE TABLE IF NOT EXISTS
-                        dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
-                        dwg KEY NOT NULL UNIQUE, part TEXT,
-                        description TEXT, date TEXT NOT NULL, author TEXT)''')
-        self.c.close()
+        with self.conn:
+            self.c = self.conn.cursor()
+            self.c.execute('''CREATE TABLE IF NOT EXISTS
+                            dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                            dwg KEY NOT NULL UNIQUE, part TEXT,
+                            description TEXT, date TEXT NOT NULL, author TEXT)''')
+                            
+        self.setWindowIcon(QIcon('icon/dwglog2.ico'))                    
 
         file_menu = self.menuBar().addMenu('&File')
         help_menu = self.menuBar().addMenu('&Help')
@@ -125,6 +128,10 @@ class MainWindow(QMainWindow):
         addrefresh_action.setShortcut(QKeySequence.Refresh)
         addrefresh_action.triggered.connect(self.loaddata)
         file_menu.addAction(addrefresh_action)
+        
+        settings_action = QAction(QIcon('icon/settings.png'), 'Settings', self)
+        settings_action.triggered.connect(self.settings)
+        file_menu.addAction(settings_action)
 
         quit_action = QAction(QIcon('icon/quit.png'), '&Quit', self)
         quit_action.setShortcut(QKeySequence.Quit)
@@ -139,26 +146,45 @@ class MainWindow(QMainWindow):
         about_action = QAction(QIcon('icon/about.png'), '&About', self)
         about_action.triggered.connect(self.about)
         help_menu.addAction(about_action)
+        
+    def settings(self):
+        dlg = SettingsDialog()
+        dlg.exec_()
 
     def loaddata(self):
         self.loadingdata = True  # make sure that "cell_was_changed" func doesn't get activated.
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        query = ('''SELECT dwg, part, description, date, author
-                    FROM dwgnos
-                    ORDER BY dwg_index DESC LIMIT 100''')
-        result = c.execute(query)
-        self.tableWidget.setRowCount(0)
-        for row_number, row_data in enumerate(result):
-            self.tableWidget.insertRow(row_number)
-            for column_number, data in enumerate(row_data):
-                item = QTableWidgetItem(str(data))
-                if '?' in str(data):
-                    item.setBackground(QColor(255, 255, 0))
-                self.tableWidget.setItem(row_number, column_number, item)
+        
+        try:
+            conn = sqlite3.connect(sqldatafile)  # sqldatafile is a global variable
+            with conn:
+                c = conn.cursor()
+                c.execute('''CREATE TABLE IF NOT EXISTS
+                                dwgnos(dwg_index INTEGER PRIMARY KEY NOT NULL UNIQUE,
+                                dwg KEY NOT NULL UNIQUE, part TEXT,
+                                description TEXT, date TEXT NOT NULL, author TEXT)''')
+                query = ('''SELECT dwg, part, description, date, author
+                            FROM dwgnos
+                            ORDER BY dwg_index DESC LIMIT 100''')
+                result = c.execute(query)
+                self.tableWidget.setRowCount(0)
+                for row_number, row_data in enumerate(result):
+                    self.tableWidget.insertRow(row_number)
+                    for column_number, data in enumerate(row_data):
+                        item = QTableWidgetItem(str(data))
+                        if '?' in str(data):
+                            item.setBackground(QColor(255, 255, 0))
+                        self.tableWidget.setItem(row_number, column_number, item)
 
-        c.close()
-        conn.close()
+        except sqlite3.Error as e:
+            msg = ('sqlite error at MainWindow/loaddata: ' + str(e))
+            print(msg)
+            message(msg, 'Error', msgtype='Warning', showButtons=False) 
+            
+        except Exception as e:
+            msg = ('Error at MainWindow/loaddata: ' + str(e))
+            print(msg)
+            message(msg, 'Error', msgtype='Warning', showButtons=False) 
+    
         self.loadingdata = False
 
     def insert(self):
@@ -274,7 +300,6 @@ class AddDialog(QDialog):
         
         self.author = QLineEdit()
         self.author.setPlaceholderText('Author (default: ' + author + ')')
-        #self.author.returnPressed.connect(self.change_author)
         
         layout.addWidget(self.author)
 
@@ -289,55 +314,38 @@ class AddDialog(QDialog):
         self.setLayout(layout)
 
     def addpart(self):
-        global author
-        #part = ""
-        description = ""
-        
-
-# =============================================================================
-#         if os.getenv('USERNAME'):
-#             author = os.getenv('USERNAME')  # Works only on MS Windows
-#             author = author.replace('_', '')
-#         elif sys.platform[:3] == 'lin':  # I'm working on my Linux system
-#             author = 'kcarlton'
-#         else:
-#             author = 'unknown'
-# =============================================================================
-
-        #part = self.partinput.text().upper().strip()    #---
+        global author        
         description = self.descriptioninput.text().upper().strip()
         now = datetime.now()
         _date = now.strftime("%m/%d/%Y")
         
         if self.author.text():
             author = self.author.text().lower()
-        
+                    
         try:
-            self.conn = sqlite3.connect('dwglog2.db')
-            self.c = self.conn.cursor()
-            self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
-            result = self.c.fetchall()
-            dwgno, self.part, new_dwg_index = generate_nos(result, self.part)
-            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, self.part, description, _date, author))
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
+            self.conn = sqlite3.connect(sqldatafile) # sqldatafile is a global variable
+            #self.conn = sqlite3.connect('dwglog2.db')
+            with self.conn:
+                self.c = self.conn.cursor()
+                self.c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
+                result = self.c.fetchall()
+                dwgno, self.part, new_dwg_index = generate_nos(result, self.part)
+                self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                               (new_dwg_index, dwgno, self.part, description, _date, author))
             self.close()
         except TypeError:
+            # if a dwg_index no. not derived from the database, try the below
             year = date.today().year
-            dwgno, self.part, new_dwg_index  = year*1000, 'Invalid part no.'
-            self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
-                           (new_dwg_index, dwgno, self.part, description, _date, author))
-            self.conn.commit()
-            self.c.close()
-            self.conn.close()
+            dwgno, self.part, new_dwg_index  = generate_nos([(year*100000,)], self.part)
+            #self.conn = sqlite3.connect('dwglog2.db')
+            self.conn = sqlite3.connect(sqldatafile)  # sqldatafile is a global variable
+            with self.conn:
+                self.c = self.conn.cursor()
+                self.c.execute("INSERT INTO dwgnos (dwg_index, dwg, part, description, Date, author) VALUES (?,?,?,?,?,?)",
+                               (new_dwg_index, dwgno, self.part, description, _date, author))
             self.close()
-            QMessageBox.warning(QMessageBox(), 'Error', 'No initial drawing number was found to begin from.  '
-                          'Will create a new one.  Possibly the error is a result of a new, empty, database '
-                          'file (dwglog2.db) having just been created?  Edit the new drawing number that '
-                          'is about to be created to adjust the start point.  Make it something like 2020305 '
-                          '(7 or 8 characters, all digits, the first 4 digits are the current year).')
+            QMessageBox.warning(QMessageBox(), 'Error', 'There appears to be a problem with\n'
+                                                        'the database.  Will try to cope.')
         except sqlite3.Error as er:
             errmsg = 'SQLite error: %s' % (' '.join(er.args))
             QMessageBox.warning(QMessageBox(), 'Error', errmsg)
@@ -519,6 +527,101 @@ class SearchResults(QDialog):
     def refresh(self):
         self.searchpart()
         self.loaddata()
+        
+        
+class SettingsDialog(QDialog):
+    ''' A dialog box asking the user about settings he would like to make.
+    '''
+        
+    def __init__(self):
+        super(SettingsDialog, self).__init__()
+
+        self.setWindowTitle('Settings')
+        self.setFixedWidth(450)
+        #self.setFixedHeight(100)  # was 150
+
+        layout = QVBoxLayout()
+                
+        self.settingsfn = ''
+        self.settingsdic = {}
+        try:
+            self.settingsfn = get_settingsfn()
+            with open(self.settingsfn, 'r') as file: # Use file to refer to the file object
+                x = file.read()
+                x = x.replace('\\', '\\\\')
+            self.settingsdic = eval(x) 
+        except Exception as e:  # it an error occured, moset likely and AttributeError
+            print("error8 at SettingsDialog", e)
+            
+        sqldatafile_label = QLabel()
+        sqldatafile_label.setText('Location of the dwglog2.db database file (C:\\path\\dwglog2.db)\n'
+                                   + '(after changing and picking OK, do a Refresh):')
+        layout.addWidget(sqldatafile_label)
+        
+        self.sqldatafile_input = QLineEdit()
+        self.sqldatafile_input.setPlaceholderText('Leave blank to set back to default file on local computer')
+        if 'sqldatafile' in self.settingsdic:
+            self.currentsqldatafile = self.settingsdic.get('sqldatafile', '')
+            self.sqldatafile_input.setText(self.currentsqldatafile)
+        layout.addWidget(self.sqldatafile_input)
+        
+        self.QBtnOK = QPushButton('text-align:center')
+        self.QBtnOK.setText("OK")
+        self.QBtnOK.setMaximumWidth(75)
+        self.QBtnOK.clicked.connect(self._done)
+        
+        self.QBtnCancel = QPushButton('text-align:center')
+        self.QBtnCancel.setText("Cancel")
+        self.QBtnCancel.setMaximumWidth(75)
+        self.QBtnCancel.clicked.connect(self.cancel)
+
+        hbox = QHBoxLayout()
+        hbox.addWidget(self.QBtnOK)
+        hbox.addWidget(self.QBtnCancel)
+        layout.addLayout(hbox)
+        self.setLayout(layout)
+
+    def _done(self):
+        global sqldatafile
+        self.sqldatafile = self.sqldatafile_input.text().strip()
+        if not self.sqldatafile:  # if user leaves blank, set back to default file location
+            defaultdir = os.path.dirname(get_settingsfn())
+            self.sqldatafile = os.path.join(defaultdir, 'dwglog2.db')
+        directory, filename = os.path.split(self.sqldatafile)
+        filename = filename.lower()
+        self.sqldatafile = os.path.join(directory, filename)
+        flag = os.path.exists(self.sqldatafile)
+        try:
+            if (not os.path.isdir(directory)) or (filename != 'dwglog2.db'):
+                raise FileNotFoundError
+            with open(self.settingsfn, "r+") as file:
+                x = file.read()
+                x = x.replace('\\', '\\\\')
+                self.settingsdic = eval(x) 
+                self.settingsdic['sqldatafile'] = self.sqldatafile
+                file.seek(0)
+                strsettingsdic = str(self.settingsdic)
+                strsettingsdic = strsettingsdic.replace('\\\\', '\\')
+                file.write(strsettingsdic)
+                file.truncate()
+                sqldatafile = self.sqldatafile # set the global variable
+            if (self.currentsqldatafile.lower() != self.sqldatafile.lower()
+                    and not flag):
+                msg =  "File not found.  New file created: \n" + self.sqldatafile
+                print(msg)
+                message(msg, 'New file created', msgtype='Information', showButtons=False)    
+        except FileNotFoundError as e:
+            msg =  "file not found: " + self.sqldatafile  + '\n' + str(e)
+            print(msg)
+            message(msg, 'Error', msgtype='Warning', showButtons=False)          
+        except Exception as e:  # it an error occured, most likely and AttributeError
+            msg =  "error9 at SettingsDialog.  " + str(e)
+            print(msg)
+            message(msg, 'Error', msgtype='Warning', showButtons=False)
+        self.close()
+        
+    def cancel(self):
+        self.close()
 
 
 def generate_nos(dwg_indexes, partNo):
@@ -527,10 +630,10 @@ def generate_nos(dwg_indexes, partNo):
 
     Parameters
     ----------
-    dwg_nos: list
-        A list of tuples derived from the dwg column of the prtnos table of the
-        dwglog2.db sqlite database file.  The list has a form like:
-        [(202100855,), (202100856,), (202100857,)]
+    dwg_indexes: list
+        A list of tuples derived from the dwg_index column (not the dwg column)
+        of the prtnos table of the dwglog2.db sqlite database file.  The list
+        has a form like: [(202100855,), (202100856,), (202100857,)]
 
     partNo: str
         Part no. given by the user.
@@ -549,7 +652,7 @@ def generate_nos(dwg_indexes, partNo):
     '''
     year = date.today().year  # current year, e.g. 2021 (an int)
     int_list = []
-    for x in dwg_indexes:  # dwg_nos has a form like [(202100855,), (202100856,), (202100857,)]
+    for x in dwg_indexes:  # dwg_indexes has a form like [(202100855,), (202100856,), (202100857,)]
         if isinstance(x[0], int) and str(x[0])[:4] == str(year):
             int_list.append(x[0])  # a list of recent dwg. nos.
     if int_list:  # list of dwg nos. in the current year
@@ -612,11 +715,10 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
     sqlSelect = sqlSelect[:-6] + ') ORDER BY dwg_index DESC'
     try:
         conn = sqlite3.connect("dwglog2.db")
-        c = conn.cursor()
-        result = c.execute(sqlSelect)
+        with conn:
+            c = conn.cursor()
+            result = c.execute(sqlSelect)
         rows = result.fetchall()
-        c.close()
-        conn.close()
         if caller_is_SearchResults:
             return rows
         srch = SearchResults(rows, searchterm, radio_button_on)
@@ -628,233 +730,6 @@ def search(searchterm, radio_button_on=False, caller_is_SearchResults=False):
         msgbox.setWindowTitle('Error')
         msgbox.setText('Could not find text searched for.')
         msgbox.exec_()
-
-
-def DELETE_Me_cell_changed(k, clicked_text, column):
-    ''' This function is called if a table cell has changed, whether in the
-    table of the MainWindow or in a table in a SearchResults window.  The
-    appropriatness of the change and how the change is handled depends on in
-    what column the change is made in.  For example, if a user enters a value
-    in a cell meant for a date, and the format of the text for that date is not
-    appropriate, the change will not be allowed.
-
-    If the change is deemed acceptable, a change verification dialog is shown
-    to the user.  If the user clicks OK to verify the change, the sqlite
-    dwglog2.db database is updated.
-
-    Parameters
-    ----------
-    k: dictionary
-        The dicionary has keys named 0, 1, 2, 3, and 4.  The values
-        corresponding to these keys are text in columns 0 (dwg no.),
-        1 (part no.), 2 (description), 3 (date), and 4 (author); these
-        corresponding to the row that contains the cell that has changed.
-    clicked_text: str
-        The original text that was in the cell that has been changed to
-        contain the updated text.
-    column: int
-        The column in which the change occurred: 0, 1, 2, 3, or 4
-        (corresponding to the columns dwg, part, description, date, or author).
-        (Note that this "cell_changed" function knows to which table row to
-        apply the change to because k[0] of the dictionary contains the drawing
-        number, and this number is unique in the table.)
-
-    Returns
-    -------
-    None.  (The dwglog2.db database is updated.)
-
-    '''
-    colnames = {0:'dwg', 1:'part', 2:'description', 3:'date', 4:'author'}
-
-    print('aaa')
-    print('column: ', column, type(k[column]))
-
-    if column in [0, 1, 2, 3] and isinstance(k[column], str):
-        k[column] = k[column].upper()
-    elif column == 4 and isinstance(k[4], str):
-        k[4] = k[column].lower()
-    #year = date.today().year
-    overwrite = False
-    originalnum = False
-    pnerr = False
-    pnWillChgWithDwgNo = False
-    #flag = False
-
-    if column == 0:
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
-        result1 = c.fetchone()
-        c.execute("SELECT dwg_index, part FROM dwgnos WHERE dwg = '" + clicked_text + "'")
-        result2 = c.fetchone()
-        c.close()
-        conn.close()
-        currentIndex = result2[0]
-        currentPN = result2[1]
-        lastIndex = result1[0]
-    if column == 1:
-        conn = sqlite3.connect('dwglog2.db')
-        c = conn.cursor()
-        c.execute("SELECT dwg_index, part, description FROM dwgnos WHERE dwg = '" + k[0] + "'")
-        result3 = c.fetchone()
-        c.close()
-        conn.close()
-        currentIndex = result3[0]
-        currentDescrip = result3[2]
-        #currentPart = result3[1]
-        k[column] = k[column][:30]
-        lst = k[column].split('-')
-        lst2 = clicked_text.split('-')
-        dg = str(indexnum2dwgnum(currentIndex))
-
-        # if pn looks to be in sync w/ dwg no., standard change notice to be shown.
-        # else if looks same except last digits, verify if this chqange really wanted.
-        # Note, 1st group of digits, i.e, 0300, 2730, etc. not taken into account
-        if ('-' in k[1] and k[1].count('-') == 2 and len(lst) == 3 and
-                all(lst) and lst[1] == dg[:4] and lst[2] == dg[4:]):
-            pnerr = False
-        # user in inadvertantly trying to change the dwg no. by changing the pn
-        elif ('-' in k[column] and k[column].count('-') == 2 and len(lst) == 3 and
-                all(lst) and lst[1] == dg[:4] and lst[2] != dg[4:]):
-            pnerr = True
-        # if cell left empty, attempt to fill with a "syncronized" pn,
-        # like 0300-2020-421 for dwgno 2020421
-        elif (not k[1].strip() and '-' in clicked_text and
-                  clicked_text.count('-') == 2  and len(lst2) == 3 and all(lst2)):
-            k[1] = lst2[0] + '-' + dg[:4] + '-' + dg[4:]
-        # if cell has 5 characters, like '0300-', fill in with synced pt. no.
-        elif (len(k[1]) == 5 and k[1].endswith('-')):
-            k[1] = k[1] + dg[:4] + '-' + dg[4:]
-        # if cell has 10 characters, like '0300-2020', fill in with synced pt. no.
-        elif (len(k[1]) == 10 and k[1].endswith('-') and k[1][5:9] == dg[:4]):
-            k[1] = k[1] + k[0][4:]
-
-        if (not currentDescrip.strip() and len(k[1]) >= 13 and k[1][4] == '-'
-            and  int(k[1][:4]) in pndescrip):
-            k[2] = pndescrip[int(k[1][:4])]
-    elif column == 2:
-        k[column] = k[column][:40]
-    if column == 3 and k[column].count('/') == 2:  # date column
-        j = k[column].split('/')
-        if (all(i.isdigit() for i in j)
-                and (1 <= int(j[0]) <= 12)
-                and (1 <= int(j[1]) <= 31)
-                and (1998 <= int(j[2]) <= 2099)):
-            k[column] = j[0].zfill(3)[-2:] + '/' + j[1].zfill(3)[-2:] + '/' + j[2]
-        else:
-            k[column] = 'abort3'
-    elif column == 3:
-        k[column] = 'abort3'
-    # case 1: delete a record:
-    elif column == 0 and k[column].lower() in ('delete', 'remove', 'del', 'rm'):
-        k[column] = 'delete'
-    # case 2: user enters what appears to be a legit dwg. no.:
-    elif column == 0 and  k[0].isdigit() and (k[0][:2] == '20') and (len(k[0]) >= 7):
-        proposedNewIndex = int(k[0][:4] + (9 % len(k[0]))*'0' + k[0][4:])
-
-        if currentPN != updatePN(currentPN, currentIndex, proposedNewIndex):
-            pnWillChgWithDwgNo = True
-
-        maxAllowedIndex = lastIndex + 50
-        if proposedNewIndex > maxAllowedIndex:
-            k[column] = 'abort0_maxexceeded'
-    # case 3: dwg. no. erased e.g. 104119, to get back program generated no., e.g. 2020867
-    elif column == 0 and k[0].strip() == '':
-        originalnum = True
-        k[0] = str(indexnum2dwgnum(currentIndex))
-    # case 4: program generated no. overwritten, e.g. 2020867 overwritten by 104119
-    elif column == 0:
-        overwrite = True
-    elif column == 4:
-        k[column] = k[column].lower()
-
-    try:
-        if k[column] == 'abort3':
-            return
-        elif (k[column] == 'abort0') or (k[column] == 'abort0_maxexceeded'):
-            if k[column] == 'abort0_maxexceeded':
-                msg = ('The maximum allowable increase for a drawing number ' +
-                       'is 50.\n ' + str(indexnum2dwgnum(maxAllowedIndex)) +
-                       ' is the max in this case.')
-            else:
-                msg = 'Improper dwg. no.'
-            message(msg, 'Error', msgtype='Warning', showButtons=False)
-            return
-        elif k[column] == 'delete':
-            msgtitle = 'Delete?'
-            msg = ('dwg:      ' + clicked_text + '\nptno:     ' + k[1] + '\ndescrip: '
-                    + k[2] + '\ndate:     ' + k[3] + '\nauthor:  ' + k[4])
-        elif overwrite == True:
-            msgtitle = 'Overwrite?'
-            msg = ('Warning: You are about to OVERWRITE a standard drawing number.\n' +
-                   'If overwritten, to retrieve the original number edit the drawing\n' +
-                   'number field and leave it blank. Then Press Enter.')
-        elif pnerr == True:
-            msgtitle = 'Warning!'
-            msg = ('It looks like you are trying to enter a part no. that this\n' +
-                   'program would normally generate. Do you expect that the\n' +
-                   'drawing no. will update to be in sync with this part no.?\n' +
-                   '(e.g. dwg. no. 2020410 is in sync with pn 0300-2020-410.)\n' +
-                   'If so, you are taking the wrong approach.\n\n ' +
-
-                   'Instead change the drawing number.  The part number,\n' +
-                   'assuming it is currenly in sync with the drawing mumber, will  \n' +
-                   'automatically update to be in sync with the new drawing number.')
-        elif pnWillChgWithDwgNo:
-            msgtitle = 'Update?'
-            msg =  ('from: ' +  clicked_text + '\nto:     ' + k[column])
-            msg += ('\n            and,  \n')
-            msg += ('from: ' +  currentPN  + '\nto:     '  + updatePN(currentPN, currentIndex, proposedNewIndex))
-        else:
-            msgtitle = 'Update?'
-            msg = ('from: ' +  clicked_text + '\nto:     ' + k[column])
-        retval = message(msg, msgtitle, msgtype='Warning', showButtons=True)
-
-        if retval == QMessageBox.Cancel:
-            userresponse = False
-        elif retval == QMessageBox.Ok:
-            userresponse = True
-        if userresponse == True:
-            conn = sqlite3.connect("dwglog2.db")
-            c = conn.cursor()
-            if column == 0 and k[0] == 'delete':  # case 1, delete
-                sqlUpdate = "DELETE from dwgnos WHERE dwg = '" + clicked_text + "'"
-            elif column == 0 and originalnum == True:  # case 3, original
-                sqlUpdate = ("UPDATE dwgnos SET " +
-                             "dwg = '" + str(indexnum2dwgnum(currentIndex)) +
-                             "' WHERE dwg = '" + clicked_text + "'")
-            elif column == 0 and overwrite == True:  # case 4, overwrite
-                sqlUpdate = ("UPDATE dwgnos SET " +
-                            "dwg = '" + str(k[0]) +
-                            "' WHERE dwg_index = " + str(currentIndex))
-            elif column == 0:  # case 2, legit no.
-                sqlUpdate = ("UPDATE dwgnos SET " +
-                             #colnames[0] + " = " + k[0] +
-                             "dwg = '" + str(indexnum2dwgnum(proposedNewIndex)) +
-                             "', part = '" + updatePN(currentPN, currentIndex, proposedNewIndex) +
-                             "', dwg_index =  " + str(proposedNewIndex) +
-                             " WHERE dwg = '" + clicked_text + "'")
-            elif column == 1:
-                sqlUpdate = ("UPDATE dwgnos SET " + colnames[column]
-                             + " = '" + k[column] + "', description = '" + k[2] +
-                             "' WHERE dwg = '" + k[0] + "'")
-            else:
-                sqlUpdate = ("UPDATE dwgnos SET " + colnames[column]
-                             + " = '" + k[column] + "' WHERE dwg = '" + k[0] + "'")
-
-            c.execute(sqlUpdate)
-            conn.commit()
-            c.close()
-            conn.close()
-
-    except sqlite3.Error as er:
-        errmsg = 'SQLite error: %s' % (' '.join(er.args))
-        message(errmsg, 'Error')
-    except Exception as er:
-        if er.args:
-            QMessageBox.warning(QMessageBox(), 'Error', er.args[0])
-        else:
-            QMessageBox.warning(QMessageBox(), 'Error', 'field not updated')
 
 
 def cell_changed(k, clicked_text, column):
@@ -903,9 +778,11 @@ def cell_changed(k, clicked_text, column):
     showConfirmationMsg = True
 
     # === preliminary setup... need some data from the database
+    conn = None
     try:
         if column <= 1:
-            conn = sqlite3.connect('dwglog2.db')
+            #conn = sqlite3.connect('dwglog2.db')
+            conn = sqlite3.connect(sqldatafile)  # sqldatafile is a global variable
             c = conn.cursor()
         if column == 0:
             c.execute("SELECT dwg_index FROM dwgnos ORDER BY dwg_index DESC LIMIT 1")
@@ -924,9 +801,15 @@ def cell_changed(k, clicked_text, column):
         if column <= 1:
             c.close()
             conn.close()
+            
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         message(errmsg, 'Error')
+        sys.exit(1)
+        
+    finally:
+        if conn:
+            conn.close()
 
     # === analyze column input to determine what should happen
     # case 1: delete a record:
@@ -1024,7 +907,7 @@ def cell_changed(k, clicked_text, column):
     elif pnWillChgWithDwgNo:
         msgtitle = 'Update?'
         msg =  ('from: ' +  clicked_text + '\nto:     ' + k[column])
-        msg += ('\n            and,  \n')
+        msg += ('\n            and  \n')
         msg += ('from: ' +  currentPN  + '\nto:     '  + updatePN(currentPN, currentIndex, proposedNewIndex))
     else:
         msgtitle = 'Update?'
@@ -1062,18 +945,25 @@ def cell_changed(k, clicked_text, column):
         userresponse = True
 
     # === Finally, update the database
+    conn = None
     try:
         #userresponse = True if retval == QMessageBox.Ok else False
         if userresponse == True:
-            conn = sqlite3.connect("dwglog2.db")
+            #conn = sqlite3.connect("dwglog2.db")
+            conn = sqlite3.connect(sqldatafile)  # sqldatafile is a global variable
             c = conn.cursor()
             c.execute(sqlUpdate)
             conn.commit()
             c.close()
             conn.close()
+            
     except sqlite3.Error as er:
         errmsg = 'SQLite error: %s' % (' '.join(er.args))
         message(errmsg, 'Error')
+        
+    finally:
+        if conn:
+            conn.close()
 
 
 def message(msg, msgtitle, msgtype='Warning', showButtons=False):
@@ -1100,6 +990,10 @@ def message(msg, msgtitle, msgtype='Warning', showButtons=False):
     msgbox = QMessageBox()
     if msgtype == 'Warning':
         msgbox.setIcon(QMessageBox.Warning)
+    elif msgtype == 'Information':
+        msgbox.setIcon(QMessageBox.Information)
+    else:
+        msgbox.setIcon(QMessageBox.NoIcon)
     msgbox.setWindowTitle(msgtitle)
     msgbox.setText(msg)
     if showButtons:
@@ -1171,6 +1065,78 @@ def updatePN(oldpn, oldindexNo, newIndexNo):
         return oldpn
 
 
+def get_settingsfn():
+    '''Get the file name used to store settings for the dwglog2 program.
+    
+    1.  Get the pathname of the file named settings.txt.  It will be in a 
+    directory on a user's local machine and within his user folders.  On a 
+    Windows  machine the name will be something like 
+    C:\\Users\\Ken\\AppData\\Local\\dwglog2\\settings.txt.  And on a Linux
+    machine it will be something like /home/ken/.dwglog2/settings.txt.
+    
+    2.  If that filename didn't already exist, crete it, and put into it:
+    "{'configdb_location': '" + defaultsqldatafile + "'}" , where 
+    defaultsqldatafile will be the file named dwglog2.db and will be in the
+    same directory as that of settings.txt described in note 1 above.  So then,
+    the contents of the settings.txt file will look something like:
+        
+        "{'sqldatafile': 'C:\\Users\\Ken\\AppData\Local\\dwglog2\\dwglog2.db'}".
+        
+    (Pytnon requires \\ to represent a \ in a string)
+    '''
+    if sys.platform[:3] == 'win':
+        datadir = os.getenv('LOCALAPPDATA')
+        path = os.path.join(datadir, 'dwglog2')
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True)
+        settingsfn = os.path.join(datadir, 'dwglog2', 'settings.txt')
+        defaultsqldatafile = os.path.join(datadir, 'dwglog2', 'dwglog2.db')
+                
+    elif sys.platform[:3] == 'lin' or sys.platform[:3] == 'dar':  # linux or darwin (Mac OS X)
+        homedir = os.path.expanduser('~')
+        path = os.path.join(homedir, '.dwglog2')
+        if not os.path.isdir(path):
+            os.makedirs(path, exist_ok=True) 
+        settingsfn = os.path.join(homedir, '.dwglog2', 'settings.txt')
+        defaultsqldatafile = os.path.join(homedir, '.dwglog2', 'dwglog2.db')
+            
+    else:
+        printStr = ('At function "get_settingsfn", a suitable path was not found to create\n'
+                    'a file named settings.txt.  Notify the programmer of this error.')
+        print(printStr) 
+        return ''
+    
+    _bool = os.path.exists(settingsfn)
+    if not _bool or (_bool and os.path.getsize(settingsfn) == 0):
+        with open(settingsfn, 'w') as file: 
+            file.write("{'sqldatafile': '" + defaultsqldatafile + "'}")
+                
+    return settingsfn
+
+
+def get_sqldatafile():
+    '''
+    Get from the file settings.txt the pathname of the file dwglog2.db
+
+    Returns
+    -------
+    sqldatafile : str
+        pathname of file dwglog2.db
+    '''
+    settingsfn = get_settingsfn()  # pathname of the settings.txt file
+    try:
+        with open(settingsfn, "r") as file:
+            x = file.read()
+            x = x.replace('\\', '\\\\')
+            settingsdic = eval(x)
+            sqldatafile = settingsdic['sqldatafile']
+    except Exception as e:  # it an error occured, moset likely and AttributeError
+        msg =  "error10 at get_sqldatafile.  " + str(e)
+        print(msg)
+        message(msg, 'Error', msgtype='Warning', showButtons=False)
+    return sqldatafile
+
+
 pndescrip = {300:"BASEPLATE ? CS", 2202:'CTRL/LAYOUT PNL ??HP ???V',
    2223:'CTRL/LAYOUT PNL ??HP ???V', 2250:'CTRL/LAYOUT PNL ??HP ???V',
    2273:'CTRL/LAYOUT PNL ??HP ???V CONTROLDEK',
@@ -1212,6 +1178,12 @@ except Exception as inst:
            'resort, delete the descriptions.py file.\n\n' +
            str(inst))
     message(msg, msgtitle)
+
+
+
+
+
+
 
 
 app = QApplication(sys.argv)

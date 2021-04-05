@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<a id="top">
+<h1>Dekker dwglog2 admin help</h1>
+
+<ul>
+    <li><a href="#importing">Importing from the old database</a></li>
+    <li><a href="#sqlite">SQLite</a></li>
+    <li><a href="#dwglog2.db">dwglog2.db</a></li>
+    <li><a href="#install">How to install the dwglog2 program</a></li>
+    <li><a href="#descrips">descriptions.py</a></li>
+</ul>
+
+<a id="importing">
+<h2>Importing from the old database:</h2>
+    <p>The data from the current drawing log program, roughly 22,000 rows of
+    data, can be exported to an Excel file.  I, Ken Carlton, have a program
+    prepared that can parse that data and place it into a database file that
+    the new dwglog2 program can use.</p>
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<a id="sqlite">
+<h2>SQLite:</h2>
+    <p>The dwglog2 program has built into it a database program called
+    <a href="https://en.wikipedia.org/wiki/SQLite" target="_blank">SQLite</a>
+    that it runs in the background.  SQLite stores and manages the data that
+    the dwglog2 program generates.  SQLite does the same function as Microsoft
+    SQL Server that is currently used at Dekker to manage the data from
+    SiteLine.  The primary difference is that SQLite saves its data in a
+    stand-along file that can be located anywhere on the Dekker network,
+    whereas Microsoft SQL Server saves its data in a secret type, reserved
+    location.  This reserved location is meant to better secure the data.
+    Plus it acts to potentially provide worldwide access (like that of
+    amazon.com) to the data. On the other hand the security on the SQLite
+    file depends on access rigthts that have been set up on it.</p>
+
+    <p>Though not very well known, SQLite is one of the
+    <a href="https://sqlite.org/famous.html" target="_blank">
+        most widely used</a>
+    SQL databases.  It is used on commercial airlines
+    <a href="https://www.airbus.com/aircraft/passenger-aircraft/a350xwb-family.html" target="_blank">
+        (Airbus),</a>
+    it is embeded into Windows 10, and it is used
+    in most cell phones.  Like Microsoft SQL Server, it is
+    <a href="https://en.wikipedia.org/wiki/ACID" target="_blank">
+        ACID compliant</a> meaning it securely manages simultaneous
+    read/writes of data coming from mulitple users.  And like Microsoft SQL
+    Server, SQLite can handle millions of lines of data.
+    </p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+
+<a id="dwglog2.db">
+<h2>dwglog2.db:</h2>
+
+    <p>The dwglog2 program stores data in a database file named dwglog2.db.
+    This file should be in the same folder that the dwglog2 executable program
+    is located. Or the file dwglog2.db can be a sybolic link to the file at
+    some other location in the network. </p>
+
+    <p>dwglog2.db should be in a location where it can be backed up regularly.
+    Preferably the properties of file will prevent it from being deleted,
+    except by the administor, but the file should have read/write rights for
+    those users who will need to use the dwglog2 program.</p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+
+<a id="install">
+<h2>How to install the dwglog2 program</h2>
+
+    <p>The dwglog2 program was converted from a readable python file (text
+    file) named dwglog2.py to the executable file named dwglog2.exe by use
+    of a program called
+    <a href="https://pypi.org/project/pyinstaller/">pyinstaller</a>.
+    Pyinstaller places the exe file that it creates into a folder alongside
+    of support files.  The support files permit the exe file to run without
+    having to having to have Python library files present.  (Also in the
+    folder should be dwglog2_help.html and dwglog2_administration_help.html
+    files, and the directory named <i>icon</i> which has icon files that
+    dwglog2 calls upon.)
+
+    <p><b>The folder is named dwglog2</b>.  If the folder and its contents are
+    placed on users' local hard drives, the dwglog2.exe program will load
+    a second or two faster.  Otherwise the folder can be on a network drive.
+    A symbolic link should be made to the dwglog2.exe file so that the
+    link will show at a convenient location, such as on the user’s desktop.</p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<a id="descrips">
+<h2>descriptions.py:</h2>
+    <p>As the dwglog2 program is operating it suggests part descriptions based
+    on the leading four digits of a part number.  Additional part descriptions
+    can be added by creating a file named descriptions.py and placing the the
+    first four digits of part numbers along side of corresponding descriptions.
+    </p>
+
+    <p>The description.py file should be in the same folder that the dwglog2
+    executable file is located.  The descriptions.py file is optional.  The
+    program can run without it.  Or the file description.py can be a sybolic
+    link to the file at some other location in the network.</p>
+
+    <p>The data in the description.py file should be in the format used in the
+    computer program called Python.  That is, the data in description.py is
+    actually a small snippit of computer code.  I'll explain that code so that
+    no programming knowledge will be required to update or create the file.</p>
+
+    <p>First of all, if it does not already exist, create, using a text editor
+    like notepad, a text file, but instead of having <i>txt</i> as a file extension,
+    use <i>py</i> as the extension.  If the file already exist, use a text editor like
+    notepad to edit it.  As metioned above, that file should be in the same
+    folder as the dwglog2 executable.</p>
+
+    <p>The code in the file is what is called a Python dictionary. For our
+    case, the dictionary starts out with the variable name, <i>decriptions</i>,
+    followed by an equals sign, and followed by the dictionary. The dictionary
+    is surrounded by brackets, {}.  Within the brackets are the pn/desription
+    values.  That is, in your descriptions.py file you will have text like
+    this:</p>
+
+    <i>descriptions = {2200:'J-BOX ?',<br />
+    2204:'CTRL PNL MANUAL MOTOR STARTER ??V ',<br />
+    2210:'CTRL/LAYOUT PNL ??V ??HP',<br />
+    4700:'KIT ?', <br />
+    6810:'SUB ASSY COOLER PACK ?',<br />
+    6855:'SUB ASSY ??"HOSE X ??" LG STAND',<br />
+    6881:'SUB ASSY CONDENSER PKG ??GAL CS'}<br /> </i>
+
+    <p>So then, the syntax should be like this: <i>descriptions =
+    {1234:'DESCRIPTION FOR 1234', 5678:'DESCRIPTION FOR 5678'}</i>.
+    By the way, a part no. like 0300 with its leading 0 is unacceptable.  Use
+    300 instead.  Any duplicate nos. in descriptions.py will supersede those
+    in the dwglog2 program.</p>
+
+    <p>If there are any missing or misplaced commas, colons, quote marks, etc., the
+    descriptions.py will not be implemented.  For more information about python
+    dictionaries see:
+    <a href="https://beginnersbook.com/2019/03/python-dictionary/"
+        target="_blank">
+        https://beginnersbook.com/2019/03/python-dictionary/</a>
+    </p>
+
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
+<i><p style="text-align:right;">last updated: 1/26/2021</p></i>
+
+</body>
+</html>
