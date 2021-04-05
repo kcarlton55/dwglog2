@@ -22,7 +22,7 @@ import os
 from datetime import datetime, date
 import webbrowser
 
-__version__ = '0.3'
+__version__ = '0.4'
 __author__ = 'Kenneth E. Carlton'
 
 if os.getenv('USERNAME'):
