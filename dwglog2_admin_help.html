@@ -11,15 +11,18 @@
     <li><a href="#dwglog2.db">dwglog2.db</a></li>
     <li><a href="#install">How to install the dwglog2 program</a></li>
     <li><a href="#descrips">descriptions.py</a></li>
+    <li><a href="#sourcefiles">sourcefiles</a></li>
 </ul>
+
 
 <a id="importing">
 <h2>Importing from the old database:</h2>
     <p>The data from the current drawing log program, roughly 22,000 rows of
-    data, can be exported to an Excel file.  I, Ken Carlton, have a program
-    prepared that can parse that data and place it into a database file that
-    the new dwglog2 program can use.</p>
+    data, can be exported to an Excel file.  There is a computer program
+    prepared (written by Ken Carlton) that can parse that data and place it
+    into a database file that the new dwglog2 program can use.</p>
     <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+
 
 <a id="sqlite">
 <h2>SQLite:</h2>
@@ -40,9 +43,9 @@
     <a href="https://sqlite.org/famous.html" target="_blank">
         most widely used</a>
     SQL databases.  It is used on commercial airlines
-    <a href="https://www.airbus.com/aircraft/passenger-aircraft/a350xwb-family.html" target="_blank">
-        (Airbus),</a>
-    it is embeded into Windows 10, and it is used
+    <a href="https://www.airbus.com/aircraft/passenger-aircraft/a350xwb-family.html"
+        target="_blank">
+        (Airbus),</a> it is embeded into Windows 10, and it is used
     in most cell phones.  Like Microsoft SQL Server, it is
     <a href="https://en.wikipedia.org/wiki/ACID" target="_blank">
         ACID compliant</a> meaning it securely manages simultaneous
@@ -91,6 +94,7 @@
 
     <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
 
+
 <a id="descrips">
 <h2>descriptions.py:</h2>
     <p>As the dwglog2 program is operating it suggests part descriptions based
@@ -130,9 +134,7 @@
     6855:'SUB ASSY ??"HOSE X ??" LG STAND',<br />
     6881:'SUB ASSY CONDENSER PKG ??GAL CS'}<br /> </i>
 
-    <p>So then, the syntax should be like this: <i>descriptions =
-    {1234:'DESCRIPTION FOR 1234', 5678:'DESCRIPTION FOR 5678'}</i>.
-    By the way, a part no. like 0300 with its leading 0 is unacceptable.  Use
+    <p>By the way, a part no. like 0300 with its leading 0 is unacceptable.  Use
     300 instead.  Any duplicate nos. in descriptions.py will supersede those
     in the dwglog2 program.</p>
 
@@ -145,6 +147,31 @@
     </p>
 
     <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>
+    
+    
+    <a id="sourcefiles">
+    <h2>Source files:</h2>
+    <p>The dwglog2 program was written using the computer language called
+    <a href="https://en.wikipedia.org/wiki/Python_(programming_language)"
+    target="_blank">Python</a>.  The source files from which this program was
+    generated can be found in the folder named <i>sourcefiles</i> which is in
+    the same folder that contains the dwglog2.exe program.  Look for the
+    files that have <i>.py</i> as file extensions.  These are text files that
+    can be opened with a text editor like Notepad or WordPad.  It is better
+    to use WordPad since Notepad most likely won't properly handle end-of-line
+    characters thereby causing all the lines to run together.</p>
+    
+    <i><p style="text-align:center;"><a href="#top">back to top</a></p></i>   
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 <i><p style="text-align:right;">last updated: 1/26/2021</p></i>
 
